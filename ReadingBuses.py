@@ -36,7 +36,7 @@ class LiveTime(object):
     def GetData():
         services = []
         try:
-            raw = urllib2.urlopen("https://rtl2.ods-live.co.uk/api/siri/sm?key=%s&location=039026660001" % sys.argv[1]).read()
+            raw = urllib2.urlopen("https://rtl2.ods-live.co.uk/api/siri/sm?key=%s&location=039028160001" % sys.argv[1]).read()
             rawServices = objectify.fromstring(raw)
         
             for root in rawServices.ServiceDelivery.StopMonitoringDelivery.MonitoredStopVisit:
@@ -59,7 +59,7 @@ def main():
     device = ssd1322(serial_interface=serial, framebuffer="diff_to_previous",rotate=2)
  
     z = 0
-    Fontmsg = ImageFont.truetype("lower.ttf",14)
+    Fontmsg = ImageFont.truetype("./lower.ttf",14)
   
     while 1:
         Services = LiveTime.GetData()    
@@ -106,7 +106,7 @@ def drawStatic(service, draw, device, Fontmsg, x):
     draw.multiline_text(((device.width - draw.textsize(service.DisplayTime, Fontmsg)[0]- 3),  16 * x), service.DisplayTime, font=Fontmsg, align="right")
 
 def drawTime(draw, device):
-    FontTime = ImageFont.truetype("time.otf",16)
+    FontTime = ImageFont.truetype("./time.otf",16)
     msgTime = str(datetime.now().strftime('%H:%M'))
     draw.multiline_text(((device.width - draw.textsize(msgTime, FontTime)[0])/2, device.height-16), msgTime, font=FontTime, align="center")
 
