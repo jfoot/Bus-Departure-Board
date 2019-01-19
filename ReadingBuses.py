@@ -92,10 +92,16 @@ def drawAnimated(service, y, draw, device, Fontmsg, x):
         draw.multiline_text((30 - y,  16 * x),service.Destination , font=Fontmsg, align="left")
     else:
         draw.multiline_text((device.width + draw.textsize(service.Destination, Fontmsg)[0] - y-53,  16 * x),service.Via , font=Fontmsg, align="left")
-    draw.rectangle((0,16 * x,30, 16 * x + 16 ), outline="black", fill="black")
+    #draw.rectangle((0,16 * x,30, 16 * x + 16 ), outline="black", fill="black")
+     
+    draw.rectangle((device.width - 54 ,16 * x,device.width + 30,16 + 16 * x), outline="white", fill="black")
+    
     draw.text((0, 16 * x), service.ServiceNumber, font=Fontmsg)
-    draw.rectangle((device.width - 54 ,16 * x,device.width,16 + 16 * x), outline="black", fill="black")
+    #draw.rectangle((device.width - 54 ,16 * x,device.width,16 + 16 * x), outline="black", fill="black")
     draw.multiline_text(((device.width - draw.textsize(service.DisplayTime, Fontmsg)[0]- 3),  16 * x),service.DisplayTime, font=Fontmsg, align="right")  
+    
+  
+    
     if draw.textsize(service.Destination, Fontmsg)[0] + draw.textsize(service.Via, Fontmsg)[0] + device.width - y -20 < 0:
         return -1
     return y
