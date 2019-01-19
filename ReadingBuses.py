@@ -77,8 +77,7 @@ def main():
                         if x == z % 3:
                             y = drawAnimated(Services[x], y, draw, device, Fontmsg, x)
                         else:
-                            if y < 10:
-                                drawStatic(Services[x], draw, device, Fontmsg, x)
+                            drawStatic(Services[x], draw, device, Fontmsg, x)
                 if y != -1:
                     y = y + 4
         z = z + 1
