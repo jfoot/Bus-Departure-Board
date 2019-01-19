@@ -68,7 +68,7 @@ def main():
             with canvas(device) as draw:    
                 drawTime(draw, device)
                 if len(Services) == 0:
-                    draw.multiline_text(((device.width - draw.textsize("Check your WIFI connection.", Fontmsg)[0])/2, 25), "Check your WIFI connection.", font=Fontmsg, align="center")
+                    draw.multiline_text(((device.width - draw.textsize("Unable to find to laptop.", Fontmsg)[0])/2, 25), "Unable to find to laptop.", font=Fontmsg, align="center")
                     y = -1
                 else:
                     for x in range(3):
