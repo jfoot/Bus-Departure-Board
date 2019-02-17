@@ -36,7 +36,7 @@ class LiveTime(object):
     def GetData():
         services = []
         try:
-            raw = urllib2.urlopen("https://rtl2.ods-live.co.uk/api/siri/sm?key=%s&location=039025980002" % sys.argv[1]).read()
+            raw = urllib2.urlopen("https://rtl2.ods-live.co.uk/api/siri/sm?key=%s&location=039028160001" % sys.argv[1]).read()
             rawServices = objectify.fromstring(raw)
         
             for root in rawServices.ServiceDelivery.StopMonitoringDelivery.MonitoredStopVisit:
