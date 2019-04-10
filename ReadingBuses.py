@@ -9,6 +9,7 @@ from PIL import ImageFont, Image, ImageDraw
 from lxml import objectify
 from datetime import datetime, date
 
+from luma.core.image_composition import ImageComposition, ComposableImage
 
 class LiveTime(object):
 
