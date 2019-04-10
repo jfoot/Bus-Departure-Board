@@ -68,6 +68,8 @@ class TextImage():
         self.width = w
         self.height = h
 
+
+class TextImageComplex():
     def __init__(self, device, destination, via, font):
         with canvas(device) as draw:
             w, h = device + draw.textsize(via, font)
@@ -110,7 +112,7 @@ class Record():
         self.speed = 1
         self.image_x_pos = 0
         
-        self.IDestination =  ComposableImage(TextImage(device, service.Destination,service.Via, font).image, position=(30, 0))
+        self.IDestination =  ComposableImage(TextImageComplex(device, service.Destination,service.Via, font).image, position=(30, 0))
         self.IServiceNumber =  ComposableImage(TextImage(device, service.ServiceNumber, font).image, position=(0, 0))
         self.IDisplayTime =  ComposableImage(displayTimeTemp.image, position=((device.width - displayTimeTemp.width- 3), 0))
      
