@@ -97,15 +97,15 @@ class Record():
         self.speed = 1
         self.image_x_pos = 0
         
-        self.Destination =  ComposableImage(TextImage(device, service.Destination, font).image, position=(30, 0))
-        self.ServiceNumber =  ComposableImage(TextImage(device, service.ServiceNumber, font).image, position=(0, 0))
-        self.DisplayTime =  ComposableImage(displayTimeTemp.image, position=((device.width - displayTimeTemp.width- 3), 16))
+        self.IDestination =  ComposableImage(TextImage(device, service.Destination, font).image, position=(30, 0))
+        self.IServiceNumber =  ComposableImage(TextImage(device, service.ServiceNumber, font).image, position=(0, 0))
+        self.IDisplayTime =  ComposableImage(displayTimeTemp.image, position=((device.width - displayTimeTemp.width- 3), 16))
 
-        self.image_composition.add_image(ServiceNumber)
-        self.image_composition.add_image(DisplayTime)
-        self.image_composition.add_image(Destination)
+        self.image_composition.add_image(IServiceNumber)
+        self.image_composition.add_image(IDisplayTime)
+        self.image_composition.add_image(IDestination)
 
-        self.max_pos = Destination.width + image_composition().width
+        self.max_pos = IDestination.width + image_composition().width
         self.delay = scroll_delay
         self.ticks = 0
         self.state = self.WAIT_SCROLL
@@ -116,7 +116,7 @@ class Record():
         self.must_scroll = self.max_pos > 0
 
     def __del__(self):
-        self.image_composition.remove_image(self.Destination)
+        self.image_composition.remove_image(self.IDestination)
 
     def tick(self):
 
@@ -149,7 +149,7 @@ class Record():
                 self.state = self.WAIT_REWIND
 
     def render(self):
-        self.Destination.offset = (self.image_x_pos, 0)
+        self.IDestination.offset = (self.image_x_pos, 0)
 
     def is_waiting(self):
         self.ticks += 1
