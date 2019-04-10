@@ -99,13 +99,13 @@ class Record():
         
         self.IDestination =  ComposableImage(TextImage(device, service.Destination, font).image, position=(30, 0))
         self.IServiceNumber =  ComposableImage(TextImage(device, service.ServiceNumber, font).image, position=(0, 0))
-        self.IDisplayTime =  ComposableImage(displayTimeTemp.image, position=((device.width - displayTimeTemp.width- 3), 16))
+        self.IDisplayTime =  ComposableImage(displayTimeTemp.image, position=((device.width - displayTimeTemp.width- 3), 0))
 
         self.image_composition.add_image(self.IServiceNumber)
         self.image_composition.add_image(self.IDisplayTime)
         self.image_composition.add_image(self.IDestination)
 
-        self.max_pos = self.IDestination.width + self.image_composition().width
+        self.max_pos = -self.IDestination.width
         self.delay = scroll_delay
         self.ticks = 0
         self.state = self.WAIT_SCROLL
@@ -193,7 +193,7 @@ try:
 
                 with canvas(device, background=image_composition()) as draw:
                     image_composition.refresh()
-                    draw.rectangle(device.bounding_box, outline="white")
+                    
 
             del top
 
