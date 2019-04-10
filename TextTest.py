@@ -91,14 +91,15 @@ class Record():
 
     def __init__(self, image_composition, service, scroll_delay, synchroniser, device):
         font = ImageFont.truetype("./lower.ttf",14)
-        
+        displayTimeTemp = TextImage(device, service.DisplayTime, font)
+
         self.image_composition = image_composition
         self.speed = 1
         self.image_x_pos = 0
         
         self.Destination =  ComposableImage(TextImage(device, service.Destination, font).image, position=(30, 0))
         self.ServiceNumber =  ComposableImage(TextImage(device, service.ServiceNumber, font).image, position=(0, 0))
-        self.DisplayTime =  ComposableImage(TextImage(device, service.DisplayTime, font).image, position=(((device.width - draw.textsize(service.DisplayTime, font)[0]- 3), 16)))
+        self.DisplayTime =  ComposableImage(displayTimeTemp.image, position=((device.width - displayTimeTemp.width- 3), 16))
 
         self.image_composition.add_image(ServiceNumber)
         self.image_composition.add_image(DisplayTime)
