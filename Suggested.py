@@ -12,6 +12,8 @@ import os
 import time
 from PIL import ImageFont, Image, ImageDraw
 
+from luma.oled.device import ssd1322
+from luma.core.interface.serial import spi
 from luma.core.render import canvas
 from luma.core.image_composition import ImageComposition, ComposableImage
 
