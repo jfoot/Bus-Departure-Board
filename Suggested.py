@@ -11,7 +11,7 @@ Scrolling artist + song and play/pause indicator
 import os
 import time
 from PIL import ImageFont, Image, ImageDraw
-from demo_opts import get_device
+
 from luma.core.render import canvas
 from luma.core.image_composition import ImageComposition, ComposableImage
 
