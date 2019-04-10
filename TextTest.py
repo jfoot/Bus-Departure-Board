@@ -105,7 +105,7 @@ class Record():
         self.image_composition.add_image(self.IDisplayTime)
         self.image_composition.add_image(self.IDestination)
 
-        self.max_pos = -self.IDestination.width
+        self.max_pos = self.IDestination.width
         self.delay = scroll_delay
         self.ticks = 0
         self.state = self.WAIT_SCROLL
