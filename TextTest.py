@@ -11,6 +11,51 @@ from datetime import datetime, date
 from luma.core.image_composition import ImageComposition, ComposableImage
 
 
+class LiveTime(object):
+    def __init__(self, Data):
+        self.ServiceNumber = str(Data.LineRef)
+        self.Destination = str(Data.DestinationName)
+        self.SchArrival = str(Data.MonitoredCall.AimedArrivalTime).split("+")[0]
+        self.ExptArrival = str(getattr( Data.MonitoredCall, "ExpectedArrivalTime", "")).split("+")[0]
+        self.Via = str(getattr(Data, "Via", "Unknown"))
+        self.DisplayTime = self.GetDisplayTime()
+        self.ID =  str(Data.FramedVehicleJourneyRef.DatedVehicleJourneyRef)
+  
+    def GetDisplayTime(self):
+        if self.ExptArrival == "":
+            return  str(datetime.strptime(self.SchArrival, '%Y-%m-%dT%H:%M:%S').time())[:-3]
+        else:
+            Diff =  (datetime.strptime(self.ExptArrival, '%Y-%m-%dT%H:%M:%S') - datetime.now()).total_seconds() / 60
+            if Diff <= 2:
+                return 'Due'
+            if Diff >=15 :
+                return str(datetime.strptime(self.SchArrival, '%Y-%m-%dT%H:%M:%S').time())[:-3]
+            return  '%d min' % Diff
+
+    @staticmethod
+    def GetData():
+        services = []
+        try:
+            raw = urllib2.urlopen("https://rtl2.ods-live.co.uk/api/siri/sm?key=%s&location=039028160001" % sys.argv[1]).read()
+            rawServices = objectify.fromstring(raw)
+        
+            for root in rawServices.ServiceDelivery.StopMonitoringDelivery.MonitoredStopVisit:
+                service = root.MonitoredVehicleJourney
+                exsits = False
+                for current in services:
+                    if current.ID == service.FramedVehicleJourneyRef.DatedVehicleJourneyRef:
+                        exsits = True
+                        break
+
+                if exsits == False:
+                    services.append(LiveTime(service))
+            return services
+        except Exception as e:
+            print(str(e))
+            return []
+
+
+
 class TextImage():
     def __init__(self, device, text, font):
         with canvas(device) as draw:
@@ -38,19 +83,28 @@ class Synchroniser():
                 return False
         return True
 
-class Scroller():
+class Record():
     WAIT_SCROLL = 1
     SCROLLING = 2
-    #WAIT_REWIND = 3
-    #WAIT_SYNC = 4
+    WAIT_REWIND = 3
+    WAIT_SYNC = 4
 
-    def __init__(self, image_composition, rendered_image, scroll_delay, synchroniser):
+    def __init__(self, image_composition, service, scroll_delay, synchroniser, device):
+        font = ImageFont.truetype("./lower.ttf",14)
+        
         self.image_composition = image_composition
         self.speed = 1
         self.image_x_pos = 0
-        self.rendered_image = rendered_image
-        self.image_composition.add_image(rendered_image)
-        self.max_pos = rendered_image.width - image_composition().width #Changed this to a + from a -
+        
+        self.Destination =  ComposableImage(TextImage(device, service.Destination, font).image, position=(30, 0))
+        self.ServiceNumber =  ComposableImage(TextImage(device, service.ServiceNumber, font).image, position=(0, 0))
+        self.DisplayTime =  ComposableImage(TextImage(device, service.DisplayTime, font).image, position=(((device.width - draw.textsize(service.DisplayTime, font)[0]- 3), 16)))
+
+        self.image_composition.add_image(ServiceNumber)
+        self.image_composition.add_image(DisplayTime)
+        self.image_composition.add_image(Destination)
+
+        self.max_pos = Destination.width + image_composition().width
         self.delay = scroll_delay
         self.ticks = 0
         self.state = self.WAIT_SCROLL
@@ -61,7 +115,7 @@ class Scroller():
         self.must_scroll = self.max_pos > 0
 
     def __del__(self):
-        self.image_composition.remove_image(self.rendered_image)
+        self.image_composition.remove_image(self.Destination)
 
     def tick(self):
 
@@ -73,17 +127,28 @@ class Scroller():
                 self.state = self.SCROLLING
                 self.synchroniser.busy(self)
 
+        elif self.state == self.WAIT_REWIND:
+            if not self.is_waiting():
+                self.synchroniser.ready(self)
+                self.state = self.WAIT_SYNC
+
+        elif self.state == self.WAIT_SYNC:
+            if self.synchroniser.is_synchronised():
+                if self.must_scroll:
+                    self.image_x_pos = 0
+                    self.render()
+                self.state = self.WAIT_SCROLL
+
         elif self.state == self.SCROLLING:
             if self.image_x_pos < self.max_pos:
                 if self.must_scroll:
                     self.render()
                     self.image_x_pos += self.speed
             else:
-                self.image_x_pos = 0
-                self.render()
+                self.state = self.WAIT_REWIND
 
     def render(self):
-        self.rendered_image.offset = (self.image_x_pos, 0)
+        self.Destination.offset = (self.image_x_pos, 0)
 
     def is_waiting(self):
         self.ticks += 1
@@ -96,10 +161,12 @@ class Scroller():
         return self.cycles
 
 
+
+
 serial = spi(device=0,port=0, bus_speed_hz=16000000)
 device = ssd1322(serial_interface=serial, framebuffer="diff_to_previous",rotate=2)
 image_composition = ImageComposition(device)
-font = ImageFont.truetype("./lower.ttf",14)
+
 
 
 
@@ -113,21 +180,21 @@ try:
     while True:
         for location in locations:
             synchroniser = Synchroniser()
-            ci_loc =  ComposableImage(TextImage(device, location, font).image, position=(0, 16))
-            Loc = Scroller(image_composition, ci_loc, 100, synchroniser)
+            Services = LiveTime.GetData()    
+            Record(image_composition, Services[0], 100, synchroniser, device)
 
             cycles = 0
 
             while cycles < 3:
-                Loc.tick()
+                Record.tick()
                 time.sleep(0.025)
-                cycles = Loc.get_cycles()
+                cycles = Record.get_cycles()
 
                 with canvas(device, background=image_composition()) as draw:
                     image_composition.refresh()
                     draw.rectangle(device.bounding_box, outline="white")
 
-            del Loc
+            del Record
 
 except KeyboardInterrupt:
     pass
