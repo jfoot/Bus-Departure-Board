@@ -122,21 +122,15 @@ class Scroller():
     def get_cycles(self):
         return self.cycles
 
-
-def make_font(name, size):
-    font_path = os.path.abspath(os.path.join(
-        os.path.dirname(__file__), 'fonts', name))
-    return ImageFont.truetype(font_path, size)
-
 # ------- main
 
 serial = spi(device=0,port=0, bus_speed_hz=16000000)
 device = ssd1322(serial_interface=serial, framebuffer="diff_to_previous",rotate=2)
 
 if device.height >= 16:
-    font = make_font("code2000.ttf", 12)
+    font = ImageFont.truetype("./lower.ttf",12)
 else:
-    font = make_font("pixelmix.ttf", 8)
+    font = ImageFont.truetype("./lower.ttf",8)
 
 image_composition = ImageComposition(device)
 
