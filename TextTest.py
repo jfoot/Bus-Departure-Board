@@ -101,9 +101,9 @@ class Record():
         self.IServiceNumber =  ComposableImage(TextImage(device, service.ServiceNumber, font).image, position=(0, 0))
         self.IDisplayTime =  ComposableImage(displayTimeTemp.image, position=((device.width - displayTimeTemp.width- 3), 16))
 
-        self.image_composition.add_image(IServiceNumber)
-        self.image_composition.add_image(IDisplayTime)
-        self.image_composition.add_image(IDestination)
+        self.image_composition.add_image(self.IServiceNumber)
+        self.image_composition.add_image(self.IDisplayTime)
+        self.image_composition.add_image(self.IDestination)
 
         self.max_pos = IDestination.width + image_composition().width
         self.delay = scroll_delay
