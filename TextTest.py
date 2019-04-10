@@ -63,6 +63,19 @@ class TextImage():
         self.image = Image.new(device.mode, (w, h))
         draw = ImageDraw.Draw(self.image)
         draw.text((0, 0), text, font=font, fill="white")
+
+        del draw
+        self.width = w
+        self.height = h
+
+    def __init__(self, device, destination, via, font):
+        with canvas(device) as draw:
+            w, h = device + draw.textsize(via, font)
+        self.image = Image.new(device.mode, (w, h))
+        draw = ImageDraw.Draw(self.image)
+        draw.text((0, 0), destination, font=font, fill="white")
+        draw.text((0, 0), via, font=font, fill="white")
+
         del draw
         self.width = w
         self.height = h
@@ -97,16 +110,16 @@ class Record():
         self.speed = 1
         self.image_x_pos = 0
         
-        self.IDestination =  ComposableImage(TextImage(device, service.Destination, font).image, position=(30, 0))
+        self.IDestination =  ComposableImage(TextImage(device, service.Destination,service.Via, font).image, position=(30, 0))
         self.IServiceNumber =  ComposableImage(TextImage(device, service.ServiceNumber, font).image, position=(0, 0))
         self.IDisplayTime =  ComposableImage(displayTimeTemp.image, position=((device.width - displayTimeTemp.width- 3), 0))
-
+     
         self.image_composition.add_image(self.IServiceNumber)
         self.image_composition.add_image(self.IDisplayTime)
         self.image_composition.add_image(self.IDestination)
 
         self.max_pos = self.IDestination.width
-        self.delay = scroll_delay
+       # self.delay = scroll_delay
         self.ticks = 0
         self.state = self.WAIT_SCROLL
         self.synchroniser = synchroniser
