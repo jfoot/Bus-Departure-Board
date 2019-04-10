@@ -128,8 +128,8 @@ def make_font(name, size):
 
 # ------- main
 
-
-device = get_device()
+serial = spi(device=0,port=0, bus_speed_hz=16000000)
+device = ssd1322(serial_interface=serial, framebuffer="diff_to_previous",rotate=2)
 
 if device.height >= 16:
     font = make_font("code2000.ttf", 12)
