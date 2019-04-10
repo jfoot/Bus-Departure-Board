@@ -72,8 +72,8 @@ class TextImage():
 class TextImageComplex():
     def __init__(self, device, destination, via, font):
         with canvas(device) as draw:
-            w = device.width + draw.textsize(via, font).width
-            h = device.height + draw.textsize(via, font).height
+            w = device.width + draw.textsize(via, font)[0]
+            h = device.height + draw.textsize(via, font)[1]
         self.image = Image.new(device.mode, (w, h))
         draw = ImageDraw.Draw(self.image)
         draw.text((0, 0), destination, font=font, fill="white")
