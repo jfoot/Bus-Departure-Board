@@ -12,7 +12,6 @@ from datetime import datetime, date
 from luma.core.image_composition import ImageComposition, ComposableImage
 
 class LiveTime(object):
-
     def __init__(self, Data):
         self.ServiceNumber = str(Data.LineRef)
         self.Destination = str(Data.DestinationName)

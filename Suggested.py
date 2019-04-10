@@ -134,6 +134,9 @@ else:
 
 image_composition = ImageComposition(device)
 
+
+        
+
 try:
     while True:
         for title in titles:
@@ -152,6 +155,7 @@ try:
 
                 with canvas(device, background=image_composition()) as draw:
                     image_composition.refresh()
+
                     draw.rectangle(device.bounding_box, outline="white")
 
             del artist
