@@ -50,7 +50,7 @@ class Scroller():
         self.image_x_pos = 0
         self.rendered_image = rendered_image
         self.image_composition.add_image(rendered_image)
-        self.max_pos = rendered_image.width + image_composition().width #Changed this to a + from a -
+        self.max_pos = rendered_image.width - image_composition().width #Changed this to a + from a -
         self.delay = scroll_delay
         self.ticks = 0
         self.state = self.WAIT_SCROLL
@@ -113,7 +113,7 @@ try:
     while True:
         for location in locations:
             synchroniser = Synchroniser()
-            ci_loc =  ComposableImage(TextImage(device, location, font).image, position=(0, 1))
+            ci_loc =  ComposableImage(TextImage(device, location, font).image, position=(0, 16))
             Loc = Scroller(image_composition, ci_loc, 100, synchroniser)
 
             cycles = 0
