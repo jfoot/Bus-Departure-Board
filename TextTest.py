@@ -119,7 +119,6 @@ class Record():
         self.image_composition.remove_image(self.IDestination)
 
     def tick(self):
-
         # Repeats the following sequence:
         #  wait - scroll - wait - rewind -> sync with other scrollers -> wait
         if self.state == self.WAIT_SCROLL:
