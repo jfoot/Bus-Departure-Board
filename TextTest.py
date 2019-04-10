@@ -182,20 +182,20 @@ try:
         for location in locations:
             synchroniser = Synchroniser()
             Services = LiveTime.GetData()    
-            Record(image_composition, Services[0], 100, synchroniser, device)
+            top = Record(image_composition, Services[0], 100, synchroniser, device)
 
             cycles = 0
 
             while cycles < 3:
-                Record.tick()
+                top.tick()
                 time.sleep(0.025)
-                cycles = Record.get_cycles()
+                cycles = top.get_cycles()
 
                 with canvas(device, background=image_composition()) as draw:
                     image_composition.refresh()
                     draw.rectangle(device.bounding_box, outline="white")
 
-            del Record
+            del top
 
 except KeyboardInterrupt:
     pass
