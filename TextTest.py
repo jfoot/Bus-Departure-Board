@@ -3,7 +3,6 @@ import time
 import sys
 from luma.core.render import canvas
 from luma.core.interface.serial import spi
-from luma.core.virtual import viewport, snapshot
 from luma.oled.device import ssd1322
 from PIL import ImageFont, Image, ImageDraw
 from lxml import objectify
@@ -53,7 +52,6 @@ class LiveTime(object):
 		except Exception as e:
 			print(str(e))
 			return []
-
 
 
 class TextImage():
@@ -106,9 +104,6 @@ class StaticTextImage():
 		draw.text((0, 0), previous_service.ServiceNumber, font=font, fill="white")
 		draw.text((device.width - displayTimeTempPrevious.width, 0), previous_service.DisplayTime, font=font, fill="white")
 
-		
-
-
 		del draw
 		self.width = w 
 		self.height = h
@@ -138,16 +133,16 @@ class ScrollTime():
 	WAIT_SCROLL = 3
 	SCROLLING = 4
 	WAIT_REWIND = 5
+	SYNC_SCROLLING = 7
 	WAIT_SYNC = 6
 		
-	WAIT_CLOSE = 7
-	CLOSING_SCROLL = 8
+
 	
 	
 	def __init__(self, image_composition, service, previous_service, scroll_delay, synchroniser, device, position):
 		font = ImageFont.truetype("./lower.ttf",14)
 		displayTimeTemp = TextImage(device, service.DisplayTime, font)
-		self.speed = 1
+		self.speed = 2
 		
 		self.image_composition = image_composition
 		self.IDestination =  ComposableImage(TextImageComplex(device, service.Destination,service.Via, font, displayTimeTemp.width).image, position=(30, 16 * position))
@@ -155,16 +150,9 @@ class ScrollTime():
 		self.IDisplayTime =  ComposableImage(displayTimeTemp.image, position=(device.width - displayTimeTemp.width, 16 * position))
 		
 		self.IStaticOld =  ComposableImage(StaticTextImage(device,service, previous_service, font).image, position=(0, (16 * position)))
-	
-		
-		#self.image_composition.add_image(self.IServiceNumber)
-		#self.image_composition.add_image(self.IDestination)
-		#self.image_composition.add_image(self.IDisplayTime)
 		self.image_composition.add_image(self.IStaticOld)
 		
-
-		self.max_pos = self.IStaticOld.width
-		self.image_y_pos = -self.IStaticOld.height/2
+		self.max_pos = self.IDestination.width
 		self.image_y_posA = 0
 		self.image_x_pos = 0
 			
@@ -175,7 +163,6 @@ class ScrollTime():
 		self.render()
 		self.synchroniser.busy(self)
 		self.cycles = 0
-		self.must_scroll = self.max_pos != 0
 
 	def __del__(self):
 		self.image_composition.remove_image(self.IStaticOld)
@@ -192,6 +179,13 @@ class ScrollTime():
 				self.cycles += 1
 				self.state = self.OPENING_SCROLL
 				self.synchroniser.busy(self)
+		elif self.state == self.OPENING_SCROLL:
+			if self.image_y_posA < 16:              
+				self.render()
+				self.image_y_posA += self.speed
+			else:
+				self.state = self.WAIT_REWIND
+
 
 		elif self.state == self.WAIT_REWIND:
 			self.synchroniser.ready(self)
@@ -199,26 +193,34 @@ class ScrollTime():
 
 		elif self.state == self.WAIT_SYNC:
 			if self.synchroniser.is_synchronised():
-				if self.must_scroll:
-					self.image_x_pos = 0
-					self.render()
-				self.state = self.WAIT_SCROLL
+				self.image_x_pos = 0
+				self.image_composition.remove_image(self.IStaticOld)
+				#del self.IStaticOld
+
+				self.image_composition.add_image(self.IServiceNumber)
+				self.image_composition.add_image(self.IDestination)
+				self.image_composition.add_image(self.IDisplayTime)
+				self.render()
+				self.state = self.SYNC_SCROLLING
+
+		elif self.state == self.SYNC_SCROLLING:
+			self.synchroniser.ready(self)
+			self.state = self.WAIT_SCROLL
+		elif self.state == self.WAIT_SCROLL:
+			if not self.is_waiting():
+				#self.synchroniser.ready(self)
+				self.state = self.SCROLLING
+
 
 		elif self.state == self.SCROLLING:
 			if self.image_x_pos < self.max_pos:
-				if self.must_scroll:
-					self.render()
-					self.image_x_pos += self.speed
-			else:
-				self.state = self.WAIT_REWIND
-				
-		elif self.state == self.OPENING_SCROLL:
-			if self.image_y_pos < 0:              
 				self.render()
-				self.image_y_pos += self.speed
-				self.image_y_posA += self.speed
+				self.image_x_pos += self.speed
 			else:
-				self.state = self.WAIT_REWIND
+				print("DONE?")
+				#self.state = self.WAIT_REWIND
+				
+		
 
 	def render(self):
 		if(self.state == self.SCROLLING or self.state == self.WAIT_SYNC):
