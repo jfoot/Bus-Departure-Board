@@ -9,7 +9,16 @@ from lxml import objectify
 from datetime import datetime, date
 from luma.core.image_composition import ImageComposition, ComposableImage
 
-
+class LiveTimeStud():
+	def __init__(self):
+		self.ServiceNumber = " "
+		self.Destination = " "
+		self.DisplayTime = " "
+		self.SchArrival = " "
+		self.ExptArrival = " "
+		self.Via = " "
+		self.ID =  " "
+	
 class LiveTime(object):
 	def __init__(self, Data):
 		self.ServiceNumber = str(Data.LineRef)
@@ -107,6 +116,21 @@ class StaticTextImage():
 		del draw
 		self.width = w 
 		self.height = h
+
+class RectangleCover():
+	def __init__(self, device):	
+	
+		with canvas(device) as draw:
+			w = device.width
+			h = 16
+			
+		self.image = Image.new(device.mode, (w, h))
+		draw = ImageDraw.Draw(self.image)
+		draw.rectangle((0, 0, device.width,16), outline="black", fill="black")
+
+		del draw
+		self.width = w 
+		self.height = h
 		
 		
 class Synchroniser():
@@ -121,36 +145,43 @@ class Synchroniser():
 
 	def is_synchronised(self):
 		for task in self.synchronised.items():
-			if task[1] is False:
+			if task[0] is False:
 				return False
-		return True
+		return 
+
+	def isFirst(self, task):
+		print(id(task))
+		if id(task) == 0:
+			return True
+		return False
+
 
 class ScrollTime():
-
-	WAIT_OPEN = 1
-	OPENING_SCROLL = 2
-	
+	OPENING_SCROLL = 1
+	OPENING_END  = 2
 	WAIT_SCROLL = 3
 	SCROLLING = 4
-	WAIT_REWIND = 5
-	SYNC_SCROLLING = 7
-	WAIT_SYNC = 6
-		
-
+	WAIT_SYNC = 5
 	
 	
 	def __init__(self, image_composition, service, previous_service, scroll_delay, synchroniser, device, position):
 		font = ImageFont.truetype("./lower.ttf",14)
 		displayTimeTemp = TextImage(device, service.DisplayTime, font)
+		IDestinationTemp  = TextImageComplex(device, service.Destination,service.Via, font, displayTimeTemp.width)
 		self.speed = 2
 		
 		self.image_composition = image_composition
-		self.IDestination =  ComposableImage(TextImageComplex(device, service.Destination,service.Via, font, displayTimeTemp.width).image, position=(30, 16 * position))
-		self.IServiceNumber =  ComposableImage(TextImage(device, service.ServiceNumber, font).image, position=(0, 16 * position))
+		self.rectangle = ComposableImage(RectangleCover(device).image, position=(0,16 * position + 16))
+		
+		
+		self.IDestination =  ComposableImage(IDestinationTemp.image.crop((0,0,IDestinationTemp.image.width + 10,16)), position=(30, 16 * position))
+		self.IServiceNumber =  ComposableImage(TextImage(device, service.ServiceNumber, font).image.crop((0,0,30,16)), position=(0, 16 * position))
 		self.IDisplayTime =  ComposableImage(displayTimeTemp.image, position=(device.width - displayTimeTemp.width, 16 * position))
 		
 		self.IStaticOld =  ComposableImage(StaticTextImage(device,service, previous_service, font).image, position=(0, (16 * position)))
+		
 		self.image_composition.add_image(self.IStaticOld)
+		self.image_composition.add_image(self.rectangle)
 		
 		self.max_pos = self.IDestination.width
 		self.image_y_posA = 0
@@ -158,67 +189,56 @@ class ScrollTime():
 			
 		self.delay = scroll_delay
 		self.ticks = 0
-		self.state = self.WAIT_SCROLL
+		self.state = self.OPENING_SCROLL
 		self.synchroniser = synchroniser
 		self.render()
 		self.synchroniser.busy(self)
-		self.cycles = 0
 
 	def __del__(self):
 		self.image_composition.remove_image(self.IStaticOld)
 		self.image_composition.remove_image(self.IDestination)
 		self.image_composition.remove_image(self.IServiceNumber)
 		self.image_composition.remove_image(self.IDisplayTime)
+		self.image_composition.remove_image(self.rectangle)
 		
 
 	def tick(self):
-		# Repeats the following sequence:
-		#  wait - scroll - wait - rewind -> sync with other scrollers -> wait
-		if self.state == self.WAIT_SCROLL:
-			if not self.is_waiting():
-				self.cycles += 1
-				self.state = self.OPENING_SCROLL
-				self.synchroniser.busy(self)
-		elif self.state == self.OPENING_SCROLL:
+		if self.state == self.OPENING_SCROLL:
+			#if self.synchroniser.is_synchronised():
 			if self.image_y_posA < 16:              
 				self.render()
 				self.image_y_posA += self.speed
 			else:
-				self.state = self.WAIT_REWIND
-
-
-		elif self.state == self.WAIT_REWIND:
-			self.synchroniser.ready(self)
-			self.state = self.WAIT_SYNC
-
-		elif self.state == self.WAIT_SYNC:
-			if self.synchroniser.is_synchronised():
-				self.image_x_pos = 0
-				self.image_composition.remove_image(self.IStaticOld)
-				#del self.IStaticOld
-
-				self.image_composition.add_image(self.IServiceNumber)
-				self.image_composition.add_image(self.IDestination)
-				self.image_composition.add_image(self.IDisplayTime)
-				self.render()
-				self.state = self.SYNC_SCROLLING
-
-		elif self.state == self.SYNC_SCROLLING:
-			self.synchroniser.ready(self)
+				self.state = self.OPENING_END
+		elif self.state == self.OPENING_END:
+			#self.synchroniser.ready(self)
+			#if self.synchroniser.is_synchronised():
+			self.image_x_pos = 0
+			self.image_composition.remove_image(self.IStaticOld)
+			self.image_composition.remove_image(self.rectangle)
+			del self.IStaticOld
+			del self.rectangle
+			self.image_composition.add_image(self.IDestination)
+			self.image_composition.add_image(self.IServiceNumber)
+			self.image_composition.add_image(self.IDisplayTime)		
+			self.render()
 			self.state = self.WAIT_SCROLL
 		elif self.state == self.WAIT_SCROLL:
+			#self.synchroniser.ready(self)
 			if not self.is_waiting():
-				#self.synchroniser.ready(self)
+				self.synchroniser.busy(self)
 				self.state = self.SCROLLING
-
-
 		elif self.state == self.SCROLLING:
 			if self.image_x_pos < self.max_pos:
 				self.render()
 				self.image_x_pos += self.speed
 			else:
-				print("DONE?")
-				#self.state = self.WAIT_REWIND
+				self.state = self.WAIT_SYNC
+		elif self.state == self.WAIT_SYNC:
+			if self.image_x_pos != 0:
+				self.image_x_pos = 0
+				self.render()
+				#self.synchroniser.ready(self)
 				
 		
 
@@ -226,7 +246,7 @@ class ScrollTime():
 		if(self.state == self.SCROLLING or self.state == self.WAIT_SYNC):
 			self.IDestination.offset = (self.image_x_pos, 0)
 		elif(self.state == self.OPENING_SCROLL):
-			self.IStaticOld.offset=(0,self.image_y_posA)
+			self.IStaticOld.offset= (0,self.image_y_posA)
 
 	def is_waiting(self):
 		self.ticks += 1
@@ -235,28 +255,30 @@ class ScrollTime():
 			return False
 		return True
 
-	def get_cycles(self):
-		return self.cycles
 
 class boardFixed():
 	def __init__(self, image_composition, scroll_delay, device):
 		self.Services = LiveTime.GetData()   
 		self.synchroniser = Synchroniser()
-		#self.top = ScrollTime(image_composition, self.Services[0], self.Services[1], scroll_delay, self.synchroniser, device, 0)
-		self.middel = ScrollTime(image_composition, self.Services[1],self.Services[2], scroll_delay, self.synchroniser, device, 1)
-		#self.bottom = ScrollTime(image_composition, self.Services[2],self.Services[1], scroll_delay, self.synchroniser, device, 2)
-		
-		self.current = self.middel
+		self.top = ScrollTime(image_composition, self.Services[0],LiveTimeStud(), scroll_delay, self.synchroniser, device, 0)
+		self.middel = ScrollTime(image_composition, self.Services[1],LiveTimeStud(), scroll_delay, self.synchroniser, device, 1)
+		self.bottom = ScrollTime(image_composition, self.Services[2],LiveTimeStud(), scroll_delay, self.synchroniser, device, 2)
+
+		self.Current = self.middel
 	def tick(self):
-		self.current.tick()
+		self.top.tick()
+		self.middel.tick()
+		self.bottom.tick()
+		#self.Current.tick()
 	
+		
 		
 
 
 serial = spi(device=0,port=0, bus_speed_hz=16000000)
 device = ssd1322(serial_interface=serial, framebuffer="diff_to_previous",rotate=2)
 image_composition = ImageComposition(device)
-board = boardFixed(image_composition,10,device)
+board = boardFixed(image_composition,50,device)
 
 try:
 	while True:
