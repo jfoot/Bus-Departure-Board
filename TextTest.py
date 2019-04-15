@@ -1,16 +1,18 @@
 import urllib2
 import time
-
 import sys
 from PIL import ImageFont, Image, ImageDraw
 from luma.core.render import canvas
 from luma.core.interface.serial import spi
 from luma.oled.device import ssd1322
-
 from lxml import objectify
 from datetime import datetime, date
 from luma.core.image_composition import ImageComposition, ComposableImage
 
+###
+# Below contains the class which gets API data from the Reading Buses API. You should pass the API key in as a paramater on startup.
+###
+#Used to create a blank object, needed in start-up or when there are less than 3 services currently schedualed. 
 class LiveTimeStud():
 	def __init__(self):
 		self.ServiceNumber = " "
@@ -21,6 +23,7 @@ class LiveTimeStud():
 		self.Via = " "
 		self.ID =  " "
 	
+#Used to get live data from the Reading Buses API.
 class LiveTime(object):
 	def __init__(self, Data):
 		self.ServiceNumber = str(Data.LineRef)
@@ -65,6 +68,11 @@ class LiveTime(object):
 			return []
 
 
+###
+# Below contains everything for the drawing and animating of the board.
+###
+
+#Used to create the time and service number on the board
 class TextImage():
 	def __init__(self, device, text, font):
 		#5 is added onto the size to create a bounding box.
@@ -79,7 +87,7 @@ class TextImage():
 		self.width = w 
 		self.height = h
 
-
+#Used to create the destination and via board.
 class TextImageComplex():
 	def __init__(self, device, destination, via, font, startOffset):
 		with canvas(device) as draw:
@@ -94,6 +102,7 @@ class TextImageComplex():
 		self.width = w
 		self.height = h
 
+#Used for the opening animation, creates a static two lines of the new and previous service.
 class StaticTextImage():
 	def __init__(self, device, service, previous_service, font):	
 		#5 is added onto the size to create a bounding box.
@@ -119,9 +128,9 @@ class StaticTextImage():
 		self.width = w 
 		self.height = h
 
+#Used to draw a black cover over hidden stuff.
 class RectangleCover():
-	def __init__(self, device):	
-	
+	def __init__(self, device):		
 		with canvas(device) as draw:
 			w = device.width
 			h = 16
@@ -134,7 +143,8 @@ class RectangleCover():
 		self.width = w 
 		self.height = h
 		
-		
+#Syncroniser
+#Used to ensure that only 1 animation is playing at any given time, apart from at the start; where all three can animate in.
 class Synchroniser():
 	def __init__(self):
 		self.synchronised = {}
@@ -151,13 +161,15 @@ class Synchroniser():
 				return False
 		return True
 
-
+#Board Line
+#Defines what one line of the display will show, i.e. what serivce that row is an what animation it should currently be running 
 class ScrollTime():
 	WAIT_OPENING = 0
 	OPENING_SCROLL = 1
 	OPENING_END  = 2
 	WAIT_SCROLL = 3
 	SCROLLING_SYNC = 6
+	SCROLLING_WAIT = 7
 	SCROLLING = 4
 	WAIT_SYNC = 5
 	
@@ -210,7 +222,7 @@ class ScrollTime():
 
 		self.generateCard(newService)
 		self.CurrentService = newService
-	
+		self.max_pos = self.IDestination.width
 		self.state = self.WAIT_OPENING
 		self.synchroniser.busy(self)
 
@@ -222,7 +234,6 @@ class ScrollTime():
 		self.image_composition.remove_image(self.IDisplayTime)
 		self.image_composition.remove_image(self.rectangle)
 		
-
 	
 
 	def tick(self):
@@ -235,6 +246,7 @@ class ScrollTime():
 				self.image_y_posA += self.speed
 			else:
 				self.state = self.OPENING_END
+
 		elif self.state == self.OPENING_END:
 			self.image_x_pos = 0
 			self.image_y_posA = 0
@@ -247,6 +259,7 @@ class ScrollTime():
 			self.render()
 			self.synchroniser.ready(self)
 			self.state = self.WAIT_SCROLL
+
 		elif self.state == self.WAIT_SCROLL:
 			if not self.is_waiting():
 				self.state = self.SCROLLING_SYNC
@@ -254,6 +267,10 @@ class ScrollTime():
 		elif self.state == self.SCROLLING_SYNC:
 			if self.synchroniser.is_synchronised():
 				self.synchroniser.busy(self)
+				self.state = self.SCROLLING_WAIT
+
+		elif self.state == self.SCROLLING_WAIT:
+			if not self.is_waiting():
 				self.state = self.SCROLLING
 
 		elif self.state == self.SCROLLING:
@@ -289,6 +306,8 @@ class ScrollTime():
 		return True
 
 
+#Board Controller
+#Defines the board which controls what each off the lines in the display will show at any time
 class boardFixed():
 	def __init__(self, image_composition, scroll_delay, device):
 		self.Services = LiveTime.GetData()   
@@ -313,12 +332,12 @@ class boardFixed():
 	
 		
 		
-
-
+#Main
+#Connects to the display and makes it update forever until ended by the user with a ctrl-c
 serial = spi(device=0,port=0, bus_speed_hz=16000000)
 device = ssd1322(serial_interface=serial, framebuffer="diff_to_previous",rotate=2)
 image_composition = ImageComposition(device)
-board = boardFixed(image_composition,50,device)
+board = boardFixed(image_composition,30,device)
 
 try:
 	while True:
@@ -328,7 +347,6 @@ try:
 		msgTime = str(datetime.now().strftime('%H:%M'))	
 		with canvas(device, background=image_composition()) as draw:
 			image_composition.refresh()
-			draw.rectangle((0 ,16 * 3,device.width,device.height), outline="black", fill="black")
 			draw.multiline_text(((device.width - draw.textsize(msgTime, FontTime)[0])/2, device.height-16), msgTime, font=FontTime, align="center")
 except KeyboardInterrupt:
 	pass
