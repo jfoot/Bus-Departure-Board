@@ -153,6 +153,7 @@ class Synchroniser():
 
 
 class ScrollTime():
+	WAIT_OPENING = 0
 	OPENING_SCROLL = 1
 	OPENING_END  = 2
 	WAIT_SCROLL = 3
@@ -161,21 +162,20 @@ class ScrollTime():
 	WAIT_SYNC = 5
 	
 	
-	def __init__(self, image_composition, service, previous_service, scroll_delay, synchroniser, device, position):
-		font = ImageFont.truetype("./lower.ttf",14)
-		displayTimeTemp = TextImage(device, service.DisplayTime, font)
-		IDestinationTemp  = TextImageComplex(device, service.Destination,service.Via, font, displayTimeTemp.width)
+	def __init__(self, image_composition, service, previous_service, scroll_delay, synchroniser, device, position, controller):
+		self.font = ImageFont.truetype("./lower.ttf",14)
+
 		self.speed = 2
+		self.position = position
+		self.Controller = controller
 		
 		self.image_composition = image_composition
 		self.rectangle = ComposableImage(RectangleCover(device).image, position=(0,16 * position + 16))
+		self.CurrentService = service
 		
+		self.generateCard(service)
 		
-		self.IDestination =  ComposableImage(IDestinationTemp.image.crop((0,0,IDestinationTemp.image.width + 10,16)), position=(30, 16 * position))
-		self.IServiceNumber =  ComposableImage(TextImage(device, service.ServiceNumber, font).image.crop((0,0,30,16)), position=(0, 16 * position))
-		self.IDisplayTime =  ComposableImage(displayTimeTemp.image, position=(device.width - displayTimeTemp.width, 16 * position))
-		
-		self.IStaticOld =  ComposableImage(StaticTextImage(device,service, previous_service, font).image, position=(0, (16 * position)))
+		self.IStaticOld =  ComposableImage(StaticTextImage(device,service, previous_service, self.font).image, position=(0, (16 * position)))
 		
 		self.image_composition.add_image(self.IStaticOld)
 		self.image_composition.add_image(self.rectangle)
@@ -191,6 +191,30 @@ class ScrollTime():
 		self.render()
 		self.synchroniser.ready(self)
 
+	def generateCard(self,service):
+		displayTimeTemp = TextImage(device, service.DisplayTime, self.font)
+		IDestinationTemp  = TextImageComplex(device, service.Destination,service.Via, self.font, displayTimeTemp.width)
+
+		self.IDestination =  ComposableImage(IDestinationTemp.image.crop((0,0,IDestinationTemp.image.width + 10,16)), position=(30, 16 * self.position))
+		self.IServiceNumber =  ComposableImage(TextImage(device, service.ServiceNumber, self.font).image.crop((0,0,30,16)), position=(0, 16 * self.position))
+		self.IDisplayTime =  ComposableImage(displayTimeTemp.image, position=(device.width - displayTimeTemp.width, 16 * self.position))
+
+	def changeCard(self, newService, device):
+		self.IStaticOld =  ComposableImage(StaticTextImage(device,newService, self.CurrentService, self.font).image, position=(0, (16 * self.position)))
+	
+		self.image_composition.add_image(self.IStaticOld)
+		self.image_composition.add_image(self.rectangle)
+		self.image_composition.remove_image(self.IDestination)
+		self.image_composition.remove_image(self.IServiceNumber)
+		self.image_composition.remove_image(self.IDisplayTime)
+
+		self.generateCard(newService)
+		self.CurrentService = newService
+	
+		self.state = self.WAIT_OPENING
+		self.synchroniser.busy(self)
+
+
 	def __del__(self):
 		self.image_composition.remove_image(self.IStaticOld)
 		self.image_composition.remove_image(self.IDestination)
@@ -199,9 +223,13 @@ class ScrollTime():
 		self.image_composition.remove_image(self.rectangle)
 		
 
-	def tick(self):
-		if self.state == self.OPENING_SCROLL:
+	
 
+	def tick(self):
+		if self.state == self.WAIT_OPENING:
+			if not self.is_waiting():
+				self.state = self.OPENING_SCROLL
+		elif self.state == self.OPENING_SCROLL:
 			if self.image_y_posA < 16:              
 				self.render()
 				self.image_y_posA += self.speed
@@ -209,14 +237,15 @@ class ScrollTime():
 				self.state = self.OPENING_END
 		elif self.state == self.OPENING_END:
 			self.image_x_pos = 0
+			self.image_y_posA = 0
 			self.image_composition.remove_image(self.IStaticOld)
 			self.image_composition.remove_image(self.rectangle)
 			del self.IStaticOld
-			del self.rectangle
 			self.image_composition.add_image(self.IDestination)
 			self.image_composition.add_image(self.IServiceNumber)
 			self.image_composition.add_image(self.IDisplayTime)		
 			self.render()
+			self.synchroniser.ready(self)
 			self.state = self.WAIT_SCROLL
 		elif self.state == self.WAIT_SCROLL:
 			if not self.is_waiting():
@@ -238,10 +267,11 @@ class ScrollTime():
 			if self.image_x_pos != 0:
 				self.image_x_pos = 0
 				self.render()
-			else:
-				if not self.is_waiting():
-					self.synchroniser.ready(self)
-					self.state = self.WAIT_SCROLL
+				self.Controller.cardChange(self)
+			#else:
+			#	if not self.is_waiting():
+					#self.synchroniser.ready(self)
+					#self.state = self.WAIT_SCROLL
 				
 		
 
@@ -263,14 +293,22 @@ class boardFixed():
 	def __init__(self, image_composition, scroll_delay, device):
 		self.Services = LiveTime.GetData()   
 		self.synchroniser = Synchroniser()
-		self.top = ScrollTime(image_composition, self.Services[0],LiveTimeStud(), scroll_delay, self.synchroniser, device, 0)
-		self.middel = ScrollTime(image_composition, self.Services[1],LiveTimeStud(), scroll_delay, self.synchroniser, device, 1)
-		self.bottom = ScrollTime(image_composition, self.Services[2],LiveTimeStud(), scroll_delay, self.synchroniser, device, 2)
+		self.scroll_delay = scroll_delay
+		self.device = device
+		self.x = 3
+		self.top = ScrollTime(image_composition, self.Services[0],LiveTimeStud(), scroll_delay, self.synchroniser, device, 0, self)
+		self.middel = ScrollTime(image_composition, self.Services[1],LiveTimeStud(), scroll_delay, self.synchroniser, device, 1,self)
+		self.bottom = ScrollTime(image_composition, self.Services[2],LiveTimeStud(), scroll_delay, self.synchroniser, device, 2, self)
 
 	def tick(self):
 		self.top.tick()
 		self.middel.tick()
 		self.bottom.tick()
+	
+	def cardChange(self, card):
+		card.changeCard(self.Services[self.x % len(self.Services)],device)
+		self.x = self.x + 1
+
 
 	
 		
