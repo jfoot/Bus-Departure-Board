@@ -42,14 +42,14 @@ class LiveTime(object):
 			if Diff <= 2:
 				return ' Due'
 			if Diff >=15 :
-				return str(datetime.strptime(self.SchArrival, '%Y-%m-%dT%H:%M:%S').time())[:-3]
+				return ' ' + str(datetime.strptime(self.SchArrival, '%Y-%m-%dT%H:%M:%S').time())[:-3]
 			return  ' %d min' % Diff
 
 	@staticmethod
 	def GetData():
 		services = []
 		try:
-			raw = urllib2.urlopen("https://rtl2.ods-live.co.uk/api/siri/sm?key=%s&location=039028160001" % sys.argv[1]).read()
+			raw = urllib2.urlopen("https://rtl2.ods-live.co.uk/api/siri/sm?key=%s&location=039025980002" % sys.argv[1]).read()
 			rawServices = objectify.fromstring(raw)
 		
 			for root in rawServices.ServiceDelivery.StopMonitoringDelivery.MonitoredStopVisit:
@@ -182,6 +182,8 @@ class ScrollTime():
 		self.max_pos = self.IDestination.width
 		self.image_y_posA = 0
 		self.image_x_pos = 0
+
+		self.partner = None
 			
 		self.delay = scroll_delay
 		self.ticks = 0
@@ -209,7 +211,9 @@ class ScrollTime():
 		self.image_composition.remove_image(self.IDestination)
 		self.image_composition.remove_image(self.IServiceNumber)
 		self.image_composition.remove_image(self.IDisplayTime)
-		self.image_composition.refresh()
+		self.partner.refresh()
+		if self.partner != None:
+			self.image_composition.refresh()
 
 		del self.IDestination
 		del self.IServiceNumber
@@ -248,7 +252,7 @@ class ScrollTime():
 			self.image_composition.remove_image(self.IStaticOld)
 			self.image_composition.remove_image(self.rectangle)
 			del self.IStaticOld
-			
+
 			self.image_composition.add_image(self.IDestination)
 			self.image_composition.add_image(self.IServiceNumber)
 			self.image_composition.add_image(self.IDisplayTime)		
@@ -291,6 +295,18 @@ class ScrollTime():
 			self.IDestination.offset = (self.image_x_pos, 0)
 		if(self.state == self.OPENING_SCROLL):
 			self.IStaticOld.offset= (0,self.image_y_posA)
+	
+	def refresh(self):
+		self.image_composition.remove_image(self.IDestination)
+		self.image_composition.remove_image(self.IServiceNumber)
+		self.image_composition.remove_image(self.IDisplayTime)
+		self.image_composition.add_image(self.IDestination)
+		self.image_composition.add_image(self.IServiceNumber)
+		self.image_composition.add_image(self.IDisplayTime)
+
+
+	def addPartner(self, partner):
+		self.partner = partner
 
 	def is_waiting(self):
 		self.ticks += 1
@@ -312,6 +328,10 @@ class boardFixed():
 		self.top = ScrollTime(image_composition, self.Services[0],LiveTimeStud(), scroll_delay, self.synchroniser, device, 0, self)
 		self.middel = ScrollTime(image_composition, self.Services[1],LiveTimeStud(), scroll_delay, self.synchroniser, device, 1,self)
 		self.bottom = ScrollTime(image_composition, self.Services[2],LiveTimeStud(), scroll_delay, self.synchroniser, device, 2, self)
+		
+		self.top.addPartner(self.middel)
+		self.middel.addPartner(self.bottom)
+		self.bottom.addPartner(None)
 
 	def tick(self):
 		self.top.tick()
