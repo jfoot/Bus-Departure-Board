@@ -75,42 +75,30 @@ class LiveTime(object):
 #Used to create the time and service number on the board
 class TextImage():
 	def __init__(self, device, text, font):
-		#5 is added onto the size to create a bounding box.
-		with canvas(device) as draw:
-			w = 5 + draw.textsize(text, font)[0]
-			h = 5 + draw.textsize(text, font)[1]
-		self.image = Image.new(device.mode, (w, h))
+		self.image = Image.new(device.mode, (device.width, 16))
 		draw = ImageDraw.Draw(self.image)
 		draw.text((0, 0), text, font=font, fill="white")
-
+	
+		self.width = 5 + draw.textsize(text, font)[0]
+		self.height = 5 + draw.textsize(text, font)[1]
 		del draw
-		self.width = w 
-		self.height = h
 
 #Used to create the destination and via board.
 class TextImageComplex():
 	def __init__(self, device, destination, via, font, startOffset):
-		with canvas(device) as draw:
-			w = device.width + draw.textsize(via, font)[0]  - startOffset
-			h = device.height + draw.textsize(via, font)[1]
-		self.image = Image.new(device.mode, (w, h))
+		self.image = Image.new(device.mode, (device.width*2, 16))
 		draw = ImageDraw.Draw(self.image)
 		draw.text((0, 0), destination, font=font, fill="white")
 		draw.text((device.width - startOffset, 0), via, font=font, fill="white")
-
+			
+		self.width = device.width + draw.textsize(via, font)[0]  - startOffset
+		self.height = 16
 		del draw
-		self.width = w
-		self.height = h
 
 #Used for the opening animation, creates a static two lines of the new and previous service.
 class StaticTextImage():
-	def __init__(self, device, service, previous_service, font):	
-		#5 is added onto the size to create a bounding box.
-		with canvas(device) as draw:
-			w = device.width
-			h = 10 + (draw.textsize(previous_service.Destination, font)[1] * 2)
-			
-		self.image = Image.new(device.mode, (w, h))
+	def __init__(self, device, service, previous_service, font):			
+		self.image = Image.new(device.mode, (device.width, 32))
 		draw = ImageDraw.Draw(self.image)
 		displayTimeTempPrevious = TextImage(device, previous_service.DisplayTime, font)
 		displayTimeTemp = TextImage(device, service.DisplayTime, font)
@@ -119,14 +107,13 @@ class StaticTextImage():
 		draw.text((device.width - displayTimeTemp.width, 16), service.DisplayTime, font=font, fill="white")
 		draw.text((30, 16), service.Destination, font=font, fill="white")	
 
-
 		draw.text((30, 0), previous_service.Destination, font=font, fill="white")	
 		draw.text((0, 0), previous_service.ServiceNumber, font=font, fill="white")
 		draw.text((device.width - displayTimeTempPrevious.width, 0), previous_service.DisplayTime, font=font, fill="white")
-
+	
+		self.width = device.width 
+		self.height = 32
 		del draw
-		self.width = w 
-		self.height = h
 
 #Used to draw a black cover over hidden stuff.
 class RectangleCover():
@@ -177,7 +164,7 @@ class ScrollTime():
 	def __init__(self, image_composition, service, previous_service, scroll_delay, synchroniser, device, position, controller):
 		self.font = ImageFont.truetype("./lower.ttf",14)
 
-		self.speed = 2
+		self.speed = 3
 		self.position = position
 		self.Controller = controller
 		
@@ -207,11 +194,14 @@ class ScrollTime():
 		displayTimeTemp = TextImage(device, service.DisplayTime, self.font)
 		IDestinationTemp  = TextImageComplex(device, service.Destination,service.Via, self.font, displayTimeTemp.width)
 
-		self.IDestination =  ComposableImage(IDestinationTemp.image.crop((0,0,IDestinationTemp.image.width + 10,16)), position=(30, 16 * self.position))
+		self.IDestination =  ComposableImage(IDestinationTemp.image.crop((0,0,IDestinationTemp.width + 10,16)), position=(30, 16 * self.position))
 		self.IServiceNumber =  ComposableImage(TextImage(device, service.ServiceNumber, self.font).image.crop((0,0,30,16)), position=(0, 16 * self.position))
 		self.IDisplayTime =  ComposableImage(displayTimeTemp.image, position=(device.width - displayTimeTemp.width, 16 * self.position))
 
 	def changeCard(self, newService, device):
+		self.state = self.WAIT_OPENING
+		self.synchroniser.busy(self)
+
 		self.IStaticOld =  ComposableImage(StaticTextImage(device,newService, self.CurrentService, self.font).image, position=(0, (16 * self.position)))
 	
 		self.image_composition.add_image(self.IStaticOld)
@@ -219,12 +209,17 @@ class ScrollTime():
 		self.image_composition.remove_image(self.IDestination)
 		self.image_composition.remove_image(self.IServiceNumber)
 		self.image_composition.remove_image(self.IDisplayTime)
+		self.image_composition.refresh()
+
+		del self.IDestination
+		del self.IServiceNumber
+		del self.IDisplayTime
 
 		self.generateCard(newService)
 		self.CurrentService = newService
 		self.max_pos = self.IDestination.width
 		self.state = self.WAIT_OPENING
-		self.synchroniser.busy(self)
+		
 
 
 	def __del__(self):
@@ -253,6 +248,7 @@ class ScrollTime():
 			self.image_composition.remove_image(self.IStaticOld)
 			self.image_composition.remove_image(self.rectangle)
 			del self.IStaticOld
+			
 			self.image_composition.add_image(self.IDestination)
 			self.image_composition.add_image(self.IServiceNumber)
 			self.image_composition.add_image(self.IDisplayTime)		
@@ -284,18 +280,16 @@ class ScrollTime():
 			if self.image_x_pos != 0:
 				self.image_x_pos = 0
 				self.render()
-				self.Controller.cardChange(self)
-			#else:
-			#	if not self.is_waiting():
-					#self.synchroniser.ready(self)
-					#self.state = self.WAIT_SCROLL
+			else:
+				if not self.is_waiting():
+					self.Controller.cardChange(self)
 				
 		
 
 	def render(self):
 		if(self.state == self.SCROLLING or self.state == self.WAIT_SYNC):
 			self.IDestination.offset = (self.image_x_pos, 0)
-		elif(self.state == self.OPENING_SCROLL):
+		if(self.state == self.OPENING_SCROLL):
 			self.IStaticOld.offset= (0,self.image_y_posA)
 
 	def is_waiting(self):
