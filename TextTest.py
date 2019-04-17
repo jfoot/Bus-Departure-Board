@@ -118,9 +118,8 @@ class StaticTextImage():
 #Used to draw a black cover over hidden stuff.
 class RectangleCover():
 	def __init__(self, device):		
-		with canvas(device) as draw:
-			w = device.width
-			h = 16
+		w = device.width
+		h = 16
 			
 		self.image = Image.new(device.mode, (w, h))
 		draw = ImageDraw.Draw(self.image)
@@ -129,6 +128,20 @@ class RectangleCover():
 		del draw
 		self.width = w 
 		self.height = h
+
+class NoService():
+	def __init__(self, device, font):		
+		w = device.width
+		h = 16
+		msg = "No Scheduled Services Found"
+		self.image = Image.new(device.mode, (w, h))
+		draw = ImageDraw.Draw(self.image)
+		draw.text((0, 0), msg, font=font, fill="white")
+
+	
+		self.width = draw.textsize(msg, font=font)[0]
+		self.height = draw.textsize(msg, font=font)[1]
+		del draw
 		
 #Syncroniser
 #Used to ensure that only 1 animation is playing at any given time, apart from at the start; where all three can animate in.
@@ -227,11 +240,18 @@ class ScrollTime():
 
 
 	def __del__(self):
-		self.image_composition.remove_image(self.IStaticOld)
-		self.image_composition.remove_image(self.IDestination)
-		self.image_composition.remove_image(self.IServiceNumber)
-		self.image_composition.remove_image(self.IDisplayTime)
-		self.image_composition.remove_image(self.rectangle)
+		try:
+			self.image_composition.remove_image(self.IStaticOld)
+			self.image_composition.remove_image(self.rectangle)
+		except:
+   			pass
+		try:
+			self.image_composition.remove_image(self.IDestination)
+			self.image_composition.remove_image(self.IServiceNumber)
+			self.image_composition.remove_image(self.IDisplayTime)
+		except:
+			pass
+		
 		
 	
 
@@ -323,26 +343,45 @@ class boardFixed():
 		self.Services = LiveTime.GetData()   
 		self.synchroniser = Synchroniser()
 		self.scroll_delay = scroll_delay
+		self.image_composition = image_composition
 		self.device = device
-		self.x = 3
-		self.top = ScrollTime(image_composition, self.Services[0],LiveTimeStud(), scroll_delay, self.synchroniser, device, 0, self)
-		self.middel = ScrollTime(image_composition, self.Services[1],LiveTimeStud(), scroll_delay, self.synchroniser, device, 1,self)
-		self.bottom = ScrollTime(image_composition, self.Services[2],LiveTimeStud(), scroll_delay, self.synchroniser, device, 2, self)
-		
+		self.ticks = 0
+		self.setInitalCards()
+	
+		NoServiceTemp = NoService(device, ImageFont.truetype("./lower.ttf",14))
+		self.NoServices = ComposableImage(NoServiceTemp.image, position=(device.width/2- NoServiceTemp.width/2,device.height/2-NoServiceTemp.height/2))
+
 		self.top.addPartner(self.middel)
 		self.middel.addPartner(self.bottom)
-		self.bottom.addPartner(None)
+	
+	def setInitalCards(self):
+		self.top = ScrollTime(image_composition, len(self.Services) >= 1 and self.Services[0] or LiveTimeStud(),LiveTimeStud(), self.scroll_delay, self.synchroniser, device, 0, self)
+		self.middel = ScrollTime(image_composition, len(self.Services) >= 2 and self.Services[1] or LiveTimeStud(),LiveTimeStud(), self.scroll_delay, self.synchroniser, device, 1,self)
+		self.bottom = ScrollTime(image_composition, len(self.Services) >= 3 and self.Services[2] or LiveTimeStud(),LiveTimeStud(), self.scroll_delay, self.synchroniser, device, 2, self)
+		self.x = len(self.Services) < 3 and len(self.Services) or 3
 
 	def tick(self):
-		self.top.tick()
-		self.middel.tick()
-		self.bottom.tick()
+		if len(self.Services) == 0:
+			self.image_composition.add_image(self.NoServices)
+			if not self.is_waiting():
+				self.Services = LiveTime.GetData()  
+				self.setInitalCards()
+				self.image_composition.remove_image(self.NoServices)
+		else:
+			self.top.tick()
+			self.middel.tick()
+			self.bottom.tick()
 	
 	def cardChange(self, card):
 		card.changeCard(self.Services[self.x % len(self.Services)],device)
 		self.x = self.x + 1
 
-
+	def is_waiting(self):
+		self.ticks += 1
+		if self.ticks > 100:
+			self.ticks = 0
+			return False
+		return True
 	
 		
 		
