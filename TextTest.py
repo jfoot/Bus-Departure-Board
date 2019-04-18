@@ -1,6 +1,7 @@
 import urllib2
 import time
 import sys
+import math
 from PIL import ImageFont, Image, ImageDraw
 from luma.core.render import canvas
 from luma.core.interface.serial import spi
@@ -62,7 +63,7 @@ class LiveTime(object):
 
 				if exsits == False:
 					services.append(LiveTime(service))
-			return services
+			return services#[:2]
 		except Exception as e:
 			print(str(e))
 			return []
@@ -224,10 +225,10 @@ class ScrollTime():
 		self.image_composition.remove_image(self.IDestination)
 		self.image_composition.remove_image(self.IServiceNumber)
 		self.image_composition.remove_image(self.IDisplayTime)
-		self.partner.refresh()
 		if self.partner != None:
-			self.image_composition.refresh()
-
+			self.partner.refresh()
+			
+		self.image_composition.refresh()
 		del self.IDestination
 		del self.IServiceNumber
 		del self.IDisplayTime
@@ -306,7 +307,7 @@ class ScrollTime():
 				self.render()
 			else:
 				if not self.is_waiting():
-					self.Controller.cardChange(self)
+					self.Controller.cardChange(self, self.position + 1)
 				
 		
 
@@ -372,9 +373,15 @@ class boardFixed():
 			self.middel.tick()
 			self.bottom.tick()
 	
-	def cardChange(self, card):
+	def cardChange(self, card, row):
+		#card.changeCard(self.x < (len(self.Services)-1) and self.Services[self.x] or LiveTimeStud(),device)
 		card.changeCard(self.Services[self.x % len(self.Services)],device)
 		self.x = self.x + 1
+		# or (math.ceil(self.x /3) > math.ceil(len(self.Services) / 3) and self.x%3 > (len(self.Services) %3))
+		if self.x >= 9:
+			self.Services = LiveTime.GetData()
+			print("New Data")
+			self.x = 0
 
 	def is_waiting(self):
 		self.ticks += 1
