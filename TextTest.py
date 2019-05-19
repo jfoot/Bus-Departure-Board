@@ -399,7 +399,13 @@ device = ssd1322(serial_interface=serial, framebuffer="diff_to_previous",rotate=
 image_composition = ImageComposition(device)
 board = boardFixed(image_composition,30,device)
 
+
 try:
+	with canvas(device) as draw:
+		draw.multiline_text((64, 10), "Departure Board", font= ImageFont.truetype("./Bold.ttf",20), align="center")
+		draw.multiline_text((45, 35), "Version : 0.1.0  -  By Jonathan Foot", font=ImageFont.truetype("./Skinny.ttf",15), align="center")
+	time.sleep(2.5)
+
 	while True:
 		board.tick()
 		time.sleep(0.025)
