@@ -1,4 +1,5 @@
 import urllib2
+import json
 import time
 import sys
 import math
@@ -23,50 +24,113 @@ class LiveTimeStud():
 		self.ExptArrival = " "
 		self.Via = " "
 		self.ID =  " "
+		self.Operator = " "
 	
 #Used to get live data from the Reading Buses API.
 class LiveTime(object):
-	def __init__(self, Data):
-		self.ServiceNumber = str(Data.LineRef)
-		self.Destination = str(Data.DestinationName)
-		self.SchArrival = str(Data.MonitoredCall.AimedArrivalTime).split("+")[0]
-		self.ExptArrival = str(getattr( Data.MonitoredCall, "ExpectedArrivalTime", "")).split("+")[0]
-		self.Via = str(getattr(Data, "Via", "Unknown"))
-		self.DisplayTime = self.GetDisplayTime()
-		self.ID =  str(Data.FramedVehicleJourneyRef.DatedVehicleJourneyRef)
+	def __init__(self, Data, Type):
+		self.Type = Type
+		if Type == "RB":
+			self.ID =  str(Data.FramedVehicleJourneyRef.DatedVehicleJourneyRef)
+			self.Operator = "Reading Buses"
+			self.ServiceNumber = str(Data.LineRef)
+			self.Destination = str(Data.DestinationName)
+			self.SchArrival = str(Data.MonitoredCall.AimedArrivalTime).split("+")[0]
+			self.ExptArrival = str(getattr( Data.MonitoredCall, "ExpectedArrivalTime", "")).split("+")[0]
+			self.Via = str(getattr(Data, "Via", "Unknown"))
+			self.DisplayTime = self.GetDisplayTime()
+		if Type == "OTH":
+			self.ID =  str(Data['id'])
+			self.Operator = str(Data['operator_name'])
+			self.ServiceNumber = str(Data['line'])
+			self.Destination = str(Data['direction'])
+			self.SchArrival = str(Data['aimed_departure_time']) 	#This seems like it's the wrong way around, possiable API bug
+			self.ExptArrival = str(Data['best_departure_estimate'])
+			self.Via = self.GetComplexVia()
+			self.DisplayTime = self.GetDisplayTime()
+			
   
+	def GetComplexVia(self):
+		Via = "This is a " + self.Operator + " Service"
+		#Need to fix this so it removes repeated location suffixs.
+		#Need to make this optional such that it doesn't slow Pi down if not wantted.
+		#Need to make this more efficent, if it has already seen this bus before do NOT get the data again.
+
+		try:
+			tempLocs = json.loads(urllib2.urlopen(self.ID).read())
+			Via += ", via: "
+			for loc in tempLocs['stops']:
+				if loc['locality'] not in Via:
+					Via += loc['locality'] + ", "
+
+			#NEED to make this optional
+			self.Destination = tempLocs['stops'][-1]['stop_name']
+			return Via[:-2] + "."
+		except Exception as e:
+			print(str(e))
+		return Via + "."
+	
+
+
+				
+
+
 	def GetDisplayTime(self):
-		if self.ExptArrival == "":
-			return " " + str(datetime.strptime(self.SchArrival, '%Y-%m-%dT%H:%M:%S').time())[:-3]
-		else:
-			Diff =  (datetime.strptime(self.ExptArrival, '%Y-%m-%dT%H:%M:%S') - datetime.now()).total_seconds() / 60
+		if self.Type == "RB":
+			if self.ExptArrival == "":
+				return " " + str(datetime.strptime(self.SchArrival, '%Y-%m-%dT%H:%M:%S').time())[:-3]
+			else:
+				Diff =  (datetime.strptime(self.ExptArrival, '%Y-%m-%dT%H:%M:%S') - datetime.now()).total_seconds() / 60
+				if Diff <= 2:
+					return ' Due'
+				if Diff >=15 :
+					return ' ' + str(datetime.strptime(self.ExptArrival, '%Y-%m-%dT%H:%M:%S').time())[:-3] #-3 to remove seconds
+				return  ' %d min' % Diff
+		
+		if self.Type == "OTH":
+			Arrival = datetime.strptime(str(datetime.now().date()) + " "  + self.ExptArrival, '%Y-%m-%d %H:%M')
+			
+			Diff =  (Arrival - datetime.now()).total_seconds() / 60
 			if Diff <= 2:
 				return ' Due'
 			if Diff >=15 :
-				return ' ' + str(datetime.strptime(self.SchArrival, '%Y-%m-%dT%H:%M:%S').time())[:-3]
+				return ' ' + str(Arrival.time())[:-3] #-3 to remove seconds
 			return  ' %d min' % Diff
 
 	@staticmethod
 	def GetData():
 		services = []
-		try:
-			raw = urllib2.urlopen("https://rtl2.ods-live.co.uk/api/siri/sm?key=%s&location=039025980002" % sys.argv[1]).read()
-			rawServices = objectify.fromstring(raw)
 		
-			for root in rawServices.ServiceDelivery.StopMonitoringDelivery.MonitoredStopVisit:
-				service = root.MonitoredVehicleJourney
-				exsits = False
-				for current in services:
-					if current.ID == service.FramedVehicleJourneyRef.DatedVehicleJourneyRef:
-						exsits = True
-						break
+		if sys.argv[2] == "RB":	
+			try:
+				raw = urllib2.urlopen("https://rtl2.ods-live.co.uk/api/siri/sm?key=%s&location=039025980002" % sys.argv[1]).read()
+				rawServices = objectify.fromstring(raw)
+			
+				for root in rawServices.ServiceDelivery.StopMonitoringDelivery.MonitoredStopVisit:
+					service = root.MonitoredVehicleJourney
+					exsits = False
+					for current in services:
+						if current.ID == service.FramedVehicleJourneyRef.DatedVehicleJourneyRef:
+							exsits = True
+							break
 
-				if exsits == False:
-					services.append(LiveTime(service))
-			return services#[:2]
-		except Exception as e:
-			print(str(e))
-			return []
+					if exsits == False:
+						services.append(LiveTime(service, "RB"))
+				return services
+			except Exception as e:
+				print(str(e))
+				return []
+
+		#Need to make proper tagging system
+		if sys.argv[2] == "OTH":
+			try:
+				tempServices = json.loads(urllib2.urlopen("https://transportapi.com/v3/uk/bus/stop/3390UN36/live.json?app_id="+ sys.argv[3]+"&app_key=" + sys.argv[1] + "&group=no&limit=9&nextbuses=yes").read())
+				for service in tempServices['departures']['all']:
+					services.append(LiveTime(service, "OTH"))
+				return services
+			except Exception as e:
+				print(str(e))
+				return []
 
 
 ###
@@ -87,7 +151,7 @@ class TextImage():
 #Used to create the destination and via board.
 class TextImageComplex():
 	def __init__(self, device, destination, via, font, startOffset):
-		self.image = Image.new(device.mode, (device.width*2, 16))
+		self.image = Image.new(device.mode, (device.width*10, 16))
 		draw = ImageDraw.Draw(self.image)
 		draw.text((0, 0), destination, font=font, fill="white")
 		draw.text((device.width - startOffset, 0), via, font=font, fill="white")
@@ -374,6 +438,11 @@ class boardFixed():
 			self.bottom.tick()
 	
 	def cardChange(self, card, row):
+		#Need to fix when only one card can be found
+		#Need to fix when less than the amount of cards you had before is found to remove old cards
+		#Need to think about ordering properly.
+
+
 		#card.changeCard(self.x < (len(self.Services)-1) and self.Services[self.x] or LiveTimeStud(),device)
 		card.changeCard(self.Services[self.x % len(self.Services)],device)
 		self.x = self.x + 1
@@ -404,7 +473,7 @@ try:
 	with canvas(device) as draw:
 		draw.multiline_text((64, 10), "Departure Board", font= ImageFont.truetype("./Bold.ttf",20), align="center")
 		draw.multiline_text((45, 35), "Version : 0.1.0  -  By Jonathan Foot", font=ImageFont.truetype("./Skinny.ttf",15), align="center")
-	time.sleep(2.5)
+	#time.sleep(2.5)
 
 	while True:
 		board.tick()
