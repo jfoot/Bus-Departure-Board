@@ -14,10 +14,24 @@ from luma.core.image_composition import ImageComposition, ComposableImage
 ##Start Up Paramarter Checks
 #Checks value is greater than Zero.
 def check_positive(value):
-    ivalue = int(value)
-    if ivalue <= 0:
-        raise argparse.ArgumentTypeError("%s is invalid, value must be greater than 0." % value)
-    return ivalue
+    try:
+        ivalue = int(value)
+        if ivalue <= 0:
+            raise argparse.ArgumentTypeError("%s is invalid, vis invalid, value must be an integer value greater than 0." % value)
+        return ivalue
+    except:
+        raise argparse.ArgumentTypeError("%s is invalid, value must be an integer value greater than 0." % value)
+
+def check_time(value):
+    try:
+        datetime.strptime(value.split("-")[0], '%H:%M').time()
+        datetime.strptime(value.split("-")[1], '%H:%M').time()
+    except:
+        raise argparse.ArgumentTypeError("%s is invalid, value must be in the form of XX:XX-YY:YY, where the values are in 24hr format." % value)
+    return [datetime.strptime(value.split("-")[0], '%H:%M').time(),  datetime.strptime(value.split("-")[1], '%H:%M').time()]
+
+
+
 
 parser = argparse.ArgumentParser(description='Reading Buses Live Departure Board, to run the program you will need to pass it all of the required paramters and you may wish to pass any optional paramters.')
 #Defines all optional paramaters
@@ -32,7 +46,8 @@ parser.add_argument("-z","--StaticUpdateLimit", help="Defines the amount of time
 parser.add_argument("--UnfixNextToArrive",dest='FixToArrive', action='store_false', help="Keep the bus sonnest to next arrive at the very top of the display until it has left; by default true")
 parser.add_argument("--HideUnknownVias", help="If the API does not report any known via route a placeholder of 'Via Central Reading' is used. If you wish to stop the animation for unknowns use this tag.", dest='HideUnknownVias', action='store_true')
 parser.add_argument('--no-splashscreen', dest='SplashScreen', action='store_false',help="Do you wish to see the splash screen at start up; recommended and on by default.")
-
+parser.add_argument("-e","--EnergySaverMode", help="To save screen from burn in and prolong it's life it is recommend to have energy saving mode enabled. 'off' is default, between the hours set the screen will turn off. 'dim' will turn the screen brightness down, but not completely off. 'none' will do nothing and leave the screen on; this is not recommend, you can change your active hours instead.", type=str,choices=["none","dim","off"],default="off")
+parser.add_argument("-i","--InactiveHours", help="The peroid of time for which the display will go into 'Energy Saving Mode' if turned on; default is '23:00-07:00'", type=check_time,default="23:00-07:00")
 
 
 #Defines the required paramaters
@@ -492,28 +507,55 @@ class boardFixed():
         return True
     
         
-        
+
+
+def is_time_between():
+   
+    # If check time is not given, default to current UTC time
+    check_time = datetime.utcnow().time()
+    if Args.InactiveHours[0] < Args.InactiveHours[1]:
+        return check_time >= Args.InactiveHours[0] and check_time <= Args.InactiveHours[1]
+    else: # crosses midnight
+        return check_time >= Args.InactiveHours[0] or check_time <= Args.InactiveHours[1]
+
+
+
 #Main
 #Connects to the display and makes it update forever until ended by the user with a ctrl-c
 serial = spi(device=0,port=0, bus_speed_hz=16000000)
 device = ssd1322(serial_interface=serial, framebuffer="diff_to_previous",rotate=Args.Rotation)
 image_composition = ImageComposition(device)
 board = boardFixed(image_composition,Args.Delay,device)
+FontTime = ImageFont.truetype("./time.otf",16)
+
+def display():
+    board.tick()
+    msgTime = str(datetime.now().strftime("%H:%M" if (Args.TimeFormat==24) else "%I:%M"))	
+    with canvas(device, background=image_composition()) as draw:
+        image_composition.refresh()
+        draw.multiline_text(((device.width - draw.textsize(msgTime, FontTime)[0])/2, device.height-16), msgTime, font=FontTime, align="center")
 
 try:
     if Args.SplashScreen:
         with canvas(device) as draw:
+            draw.contrast = 0
             draw.multiline_text((64, 10), "Departure Board", font= ImageFont.truetype("./Bold.ttf",20), align="center")
             draw.multiline_text((45, 35), "Version : 0.1.RB -  By Jonathan Foot", font=ImageFont.truetype("./Skinny.ttf",15), align="center")
         time.sleep(2.5)
 
+
     while True:
-        board.tick()
-        time.sleep(0.025)
-        FontTime = ImageFont.truetype("./time.otf",16)
-        msgTime = str(datetime.now().strftime("%H:%M" if (Args.TimeFormat==24) else  "%I:%M"))	
-        with canvas(device, background=image_composition()) as draw:
-            image_composition.refresh()
-            draw.multiline_text(((device.width - draw.textsize(msgTime, FontTime)[0])/2, device.height-16), msgTime, font=FontTime, align="center")
+        time.sleep(0.02)
+        if Args.EnergySaverMode != "none" and is_time_between():
+            if Args.EnergySaverMode == "dim":
+                device.contrast(15)
+                display()
+            elif Args.EnergySaverMode == "off":
+                device.hide()
+                time.sleep(60)
+        else:
+            device.contrast(255)
+            device.show()
+            display()
 except KeyboardInterrupt:
     pass
