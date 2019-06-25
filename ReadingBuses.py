@@ -473,16 +473,15 @@ class boardFixed():
             self.bottom.tick()
     
     def requestCardChange(self, card, row):
-        if row > len(self.Services):
-            card.changeCard(LiveTimeStud(),device)
-            return
-
         if (self.x > Args.NumberOfCards or self.x >len(self.Services)-1):
             self.x = 1 if Args.FixToArrive else 0
             if LiveTime.TimePassed():  
                 self.Services = LiveTime.GetData()
                 print("New Data")
 
+        if row > len(self.Services):
+            card.changeCard(LiveTimeStud(),device)
+            return
 
         if Args.FixToArrive and row == 1:
             if self.Services[0].ID == card.CurrentService.ID:
@@ -540,7 +539,7 @@ try:
         with canvas(device) as draw:
             draw.contrast = 0
             draw.multiline_text((64, 10), "Departure Board", font= ImageFont.truetype("./Bold.ttf",20), align="center")
-            draw.multiline_text((45, 35), "Version : 0.1.RB -  By Jonathan Foot", font=ImageFont.truetype("./Skinny.ttf",15), align="center")
+            draw.multiline_text((45, 35), "Version : 0.8.RB -  By Jonathan Foot", font=ImageFont.truetype("./Skinny.ttf",15), align="center")
         time.sleep(2.5)
 
 
