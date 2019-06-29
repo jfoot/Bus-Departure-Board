@@ -39,7 +39,7 @@ parser.add_argument("-t","--TimeFormat", help="Do you wish to use 24hr or 12hr t
 parser.add_argument("-v","--Speed", help="What speed do you want the text to scroll at on the display; default is 3, must be greater than 0.", type=check_positive,default=3)
 parser.add_argument("-d","--Delay", help="How long the display will pause before starting the next animation; default is 30, must be greater than 0.", type=check_positive,default=30)
 parser.add_argument("-r","--RecoveryTime", help="How long the display will wait before attempting to get new data again after previously failing; default is 100, must be greater than 0.", type=check_positive,default=100)
-parser.add_argument("-n","--NumberOfCards", help="The maximum number of cards you will see before forcing a new data retrieval, a limit is recommend to prevent cycling through data which may become out of data; default is 9, must be greater than 0.", type=check_positive,default=100)
+parser.add_argument("-n","--NumberOfCards", help="The maximum number of cards you will see before forcing a new data retrieval, a limit is recommend to prevent cycling through data which may become out of data or going too far into scheduled buses; default is 9, must be greater than 0.", type=check_positive,default=100)
 parser.add_argument("-x","--Rotation", help="Defines which way up the screen is rendered; default is 2", type=int,default=2,choices=[0,2])
 parser.add_argument("-l","--RequestLimit", help="Defines the minium amount of time the display must wait before making a new data request; default is 55(seconds)", type=check_positive,default=55)
 parser.add_argument("-z","--StaticUpdateLimit", help="Defines the amount of time the display will wait before updating the expected arrival time (based upon it's last known predicted arrival time); defualt is  15(seconds), this should be lower than your 'RequestLimit'", type=check_positive,default=15)
@@ -527,6 +527,7 @@ device = ssd1322(serial_interface=serial, framebuffer="diff_to_previous",rotate=
 image_composition = ImageComposition(device)
 board = boardFixed(image_composition,Args.Delay,device)
 FontTime = ImageFont.truetype("./time.otf",16)
+device.contrast(255)
 
 def display():
     board.tick()
@@ -538,7 +539,6 @@ def display():
 try:
     if Args.SplashScreen:
         with canvas(device) as draw:
-            draw.contrast = 0
             draw.multiline_text((64, 10), "Departure Board", font= ImageFont.truetype("./Bold.ttf",20), align="center")
             draw.multiline_text((45, 35), "Version : 1.0.RB -  By Jonathan Foot", font=ImageFont.truetype("./Skinny.ttf",15), align="center")
         time.sleep(2.5)
