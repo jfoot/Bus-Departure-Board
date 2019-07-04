@@ -304,7 +304,9 @@ class ScrollTime():
     def changeCard(self, newService, device):
         if newService.ID == "0":
             if self.CurrentService.ID == "0":
+                print "stuf"
                 self.state = self.STUD
+                self.synchroniser.ready(self)
             else:
                 self.state = self.WAIT_STUD
                 self.synchroniser.busy(self)
