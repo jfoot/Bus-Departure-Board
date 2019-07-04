@@ -335,7 +335,8 @@ class ScrollTime():
             self.image_composition.remove_image(self.IServiceNumber)
             self.image_composition.remove_image(self.IDisplayTime)
         except:
-            pass   
+            pass  
+        self.image_composition.refresh() 
 
     def tick(self):
         #Update X min till arrival.
@@ -447,6 +448,13 @@ class boardFixed():
         self.top.addPartner(self.middel)
         self.middel.addPartner(self.bottom)
     
+    def __del__(self):
+        del self.top
+        del self.middel
+        del self.bottom
+        self.image_composition.refresh()
+
+
     #Set up the cards for the inital starting animation.
     def setInitalCards(self):
         self.top = ScrollTime(image_composition, len(self.Services) >= 1 and self.Services[0] or LiveTimeStud(),LiveTimeStud(), self.scroll_delay, self.synchroniser, device, 0, self)
@@ -528,6 +536,7 @@ image_composition = ImageComposition(device)
 board = boardFixed(image_composition,Args.Delay,device)
 FontTime = ImageFont.truetype("./time.otf",16)
 device.contrast(255)
+energyMode = "normal"
 
 def display():
     board.tick()
@@ -536,26 +545,38 @@ def display():
         image_composition.refresh()
         draw.multiline_text(((device.width - draw.textsize(msgTime, FontTime)[0])/2, device.height-16), msgTime, font=FontTime, align="center")
 
-try:
+def Splash():
     if Args.SplashScreen:
         with canvas(device) as draw:
             draw.multiline_text((64, 10), "Departure Board", font= ImageFont.truetype("./Bold.ttf",20), align="center")
             draw.multiline_text((45, 35), "Version : 1.0.RB -  By Jonathan Foot", font=ImageFont.truetype("./Skinny.ttf",15), align="center")
         time.sleep(2.5)
 
+try:
+    
+    Splash()
 
     while True:
         time.sleep(0.02)
         if Args.EnergySaverMode != "none" and is_time_between():
             if Args.EnergySaverMode == "dim":
-                device.contrast(15)
+                if energyMode == "normal":
+                    device.contrast(15)
+                    energyMode = "dim"
                 display()
             elif Args.EnergySaverMode == "off":
-                device.hide()
-                time.sleep(60)
+                if energyMode == "normal":
+                    del board
+                    device.hide()
+                    energyMode = "off"      
         else:
-            device.contrast(255)
-            device.show()
+            if energyMode != "normal":
+                device.contrast(255)
+                if energyMode == "off":
+                    device.show()
+                    Splash()
+                    board = boardFixed(image_composition,Args.Delay,device)
+                energyMode = "normal"
             display()
 except KeyboardInterrupt:
     pass
