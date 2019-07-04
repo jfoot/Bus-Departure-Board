@@ -469,7 +469,7 @@ class ScrollTime():
     def render(self):
         if(self.state == self.SCROLLING or self.state == self.WAIT_SYNC):
             self.IDestination.offset = (self.image_x_pos, 0)
-        if(self.state == self.OPENING_SCROLL):
+        if(self.state == self.OPENING_SCROLL or self.state == self.STUD_SCROLL):
             self.IStaticOld.offset= (0,self.image_y_posA)
     
     def refresh(self):
@@ -548,8 +548,7 @@ class boardFixed():
                 self.Services = LiveTime.GetData()
                 print("New Data")
 
-        if row > len(self.Services):
-            #if card.CurrentService.ID != "0":       
+        if row > len(self.Services):       
             print "Triger Stud"
             card.changeCard(LiveTimeStud(),device)
             return
