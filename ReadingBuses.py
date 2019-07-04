@@ -415,6 +415,8 @@ class ScrollTime():
                         self.synchroniser.busy(self)
                         if (Args.HideUnknownVias and self.CurrentService.Via == GenericVia) or Args.ReducedAnimations:
                             self.state = self.WAIT_SYNC
+                        elif self.CurrentService.ID == "0":
+                            self.state = self.STUD
                         else:
                             self.state = self.SCROLLING_WAIT
 
