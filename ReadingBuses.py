@@ -1,6 +1,7 @@
 import urllib2
 import time
 import math
+import os
 import argparse
 from PIL import ImageFont, Image, ImageDraw
 from luma.core.render import canvas
@@ -45,10 +46,13 @@ parser.add_argument("-l","--RequestLimit", help="Defines the minium amount of ti
 parser.add_argument("-z","--StaticUpdateLimit", help="Defines the amount of time the display will wait before updating the expected arrival time (based upon it's last known predicted arrival time); defualt is  15(seconds), this should be lower than your 'RequestLimit'", type=check_positive,default=15)
 parser.add_argument("-e","--EnergySaverMode", help="To save screen from burn in and prolong it's life it is recommend to have energy saving mode enabled. 'off' is default, between the hours set the screen will turn off. 'dim' will turn the screen brightness down, but not completely off. 'none' will do nothing and leave the screen on; this is not recommend, you can change your active hours instead.", type=str,choices=["none","dim","off"],default="off")
 parser.add_argument("-i","--InactiveHours", help="The peroid of time for which the display will go into 'Energy Saving Mode' if turned on; default is '23:00-07:00'", type=check_time,default="23:00-07:00")
+parser.add_argument("-u","--UpdateDays", help="The number of days for which the Pi will wait before rebooting and checking for a new update again during your energy saving period; defualt 3 days.", type=check_positive, default=3)
 parser.add_argument("--ReducedAnimations", help="If you wish to stop the Via animation and cycle faster through the services use this tag to turn the animation off.", dest='ReducedAnimations', action='store_true')
 parser.add_argument("--UnfixNextToArrive",dest='FixToArrive', action='store_false', help="Keep the bus sonnest to next arrive at the very top of the display until it has left; by default true")
 parser.add_argument("--HideUnknownVias", help="If the API does not report any known via route a placeholder of 'Via Central Reading' is used. If you wish to stop the animation for unknowns use this tag.", dest='HideUnknownVias', action='store_true')
 parser.add_argument('--no-splashscreen', dest='SplashScreen', action='store_false',help="Do you wish to see the splash screen at start up; recommended and on by default.")
+parser.add_argument('--ShowIndex', dest='ShowIndex', action='store_true',help="Do you wish to see index position for each service due to arrive.")
+
 
 
 #Defines the required paramaters
@@ -81,8 +85,8 @@ class LiveTimeStud():
 class LiveTime(object):
 	LastUpdate = datetime.now()
 
-	def __init__(self, Data):
-		self.ServiceNumber = str(Data.LineRef)
+	def __init__(self, Data, Index):
+		self.ServiceNumber = "%s.%s" % (Index + 1, str(Data.LineRef)) if Args.ShowIndex else str(Data.LineRef)
 		self.Destination = str(Data.DestinationName)
 		self.SchArrival = str(Data.MonitoredCall.AimedArrivalTime).split("+")[0]
 		self.ExptArrival = str(getattr( Data.MonitoredCall, "ExpectedArrivalTime", "")).split("+")[0]
@@ -117,6 +121,7 @@ class LiveTime(object):
 	def GetData():
 		LiveTime.LastUpdate = datetime.now()
 		services = []
+
 		try:
 			raw = urllib2.urlopen("https://rtl2.ods-live.co.uk/api/siri/sm?key=%s&location=%s" % (Args.APIKey, Args.StopID)).read()
 			rawServices = objectify.fromstring(raw)
@@ -131,7 +136,7 @@ class LiveTime(object):
 						break
 
 				if exsits == False:
-					services.append(LiveTime(service))
+					services.append(LiveTime(service, len(services)))
 			return services
 		except Exception as e:
 			print(str(e))
@@ -175,9 +180,9 @@ class StaticTextImage():
 
 		draw.text((0, 16), service.ServiceNumber, font=BasicFont, fill="white")
 		draw.text((device.width - displayTimeTemp.width, 16), service.DisplayTime, font=BasicFont, fill="white")
-		draw.text((30, 16), service.Destination, font=BasicFont, fill="white")	
+		draw.text((45 if Args.ShowIndex else 30, 16), service.Destination, font=BasicFont, fill="white")	
 
-		draw.text((30, 0), previous_service.Destination, font=BasicFont, fill="white")	
+		draw.text((45 if Args.ShowIndex else 30, 0), previous_service.Destination, font=BasicFont, fill="white")	
 		draw.text((0, 0), previous_service.ServiceNumber, font=BasicFont, fill="white")
 		draw.text((device.width - displayTimeTempPrevious.width, 0), previous_service.DisplayTime, font=BasicFont, fill="white")
 	
@@ -285,8 +290,8 @@ class ScrollTime():
 		displayTimeTemp = TextImage(device, service.DisplayTime)
 		IDestinationTemp  = TextImageComplex(device, service.Destination,service.Via, displayTimeTemp.width)
 
-		self.IDestination =  ComposableImage(IDestinationTemp.image.crop((0,0,IDestinationTemp.width + 10,16)), position=(30, 16 * self.position))
-		self.IServiceNumber =  ComposableImage(TextImage(device, service.ServiceNumber).image.crop((0,0,30,16)), position=(0, 16 * self.position))
+		self.IDestination =  ComposableImage(IDestinationTemp.image.crop((0,0,IDestinationTemp.width + 10,16)), position=(45 if Args.ShowIndex else 30, 16 * self.position))
+		self.IServiceNumber =  ComposableImage(TextImage(device, service.ServiceNumber).image.crop((0,0,45 if Args.ShowIndex else 30,16)), position=(0, 16 * self.position))
 		self.IDisplayTime =  ComposableImage(displayTimeTemp.image, position=(device.width - displayTimeTemp.width, 16 * self.position))
 
 	def updateCard(self, newService, device):
@@ -538,7 +543,8 @@ class boardFixed():
 				else:
 					card.changeCard(self.Services[self.x % len(self.Services)],device)
 		
-		self.x = self.x + 1
+		if  not (Args.FixToArrive and row == 1):
+			self.x = self.x + 1
 
 
 
@@ -571,6 +577,7 @@ board = boardFixed(image_composition,Args.Delay,device)
 FontTime = ImageFont.truetype("./time.otf",16)
 device.contrast(255)
 energyMode = "normal"
+StartUpDate = datetime.now().date()
 
 def display():
 	board.tick()
@@ -587,12 +594,15 @@ def Splash():
 		time.sleep(2.5)
 
 try:
-	
+
 	Splash()
 
 	while True:
 		time.sleep(0.02)
 		if Args.EnergySaverMode != "none" and is_time_between():
+			if (datetime.now().date() - StartUpDate).days >= Args.UpdateDays:
+				print "Restarting Pi To Check For Updates On Start Up."
+				os.system("sudo reboot")
 			if Args.EnergySaverMode == "dim":
 				if energyMode == "normal":
 					device.contrast(15)
