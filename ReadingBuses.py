@@ -583,7 +583,7 @@ def Splash():
 	if Args.SplashScreen:
 		with canvas(device) as draw:
 			draw.multiline_text((64, 10), "Departure Board", font= ImageFont.truetype("./Bold.ttf",20), align="center")
-			draw.multiline_text((45, 35), "Version : 1.1.RB -  By Jonathan Foot", font=ImageFont.truetype("./Skinny.ttf",15), align="center")
+			draw.multiline_text((45, 35), "Version : 1.0.RB -  By Jonathan Foot", font=ImageFont.truetype("./Skinny.ttf",15), align="center")
 		time.sleep(2.5)
 
 try:
