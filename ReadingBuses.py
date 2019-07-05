@@ -99,7 +99,7 @@ class LiveTime(object):
 		else:
 			Diff =  (datetime.strptime(self.ExptArrival, '%Y-%m-%dT%H:%M:%S') - datetime.now()).total_seconds() / 60
 			if Diff <= 2:
-			   return ' Due'
+				return ' Due'
 			if Diff >=15 :
 				return ' ' + datetime.strptime(self.SchArrival, '%Y-%m-%dT%H:%M:%S').strftime("%H:%M" if (Args.TimeFormat==24) else  "%I:%M")
 			return  ' %d min' % Diff
@@ -118,7 +118,7 @@ class LiveTime(object):
 		LiveTime.LastUpdate = datetime.now()
 		services = []
 		try:
-			raw = urllib2.urlopen("https://jonathanfoot.com/temp.xml").read()
+			raw = urllib2.urlopen("https://rtl2.ods-live.co.uk/api/siri/sm?key=%s&location=%s" % (Args.APIKey, Args.StopID)).read()
 			rawServices = objectify.fromstring(raw)
 		
 			#Makes sure the same service isn't got multiple times.
@@ -296,7 +296,7 @@ class ScrollTime():
 
 		displayTimeTemp = TextImage(device, newService.DisplayTime)
 		self.IDisplayTime = ComposableImage(displayTimeTemp.image, position=(device.width - displayTimeTemp.width, 16 * self.position))
-	   
+	
 		self.image_composition.add_image(self.IDisplayTime)
 		self.image_composition.refresh()
 
@@ -306,7 +306,7 @@ class ScrollTime():
 			self.state = self.STUD
 			self.synchroniser.ready(self)
 			return 
-			  
+			
 		self.synchroniser.busy(self)
 		self.IStaticOld =  ComposableImage(StaticTextImage(device,newService, self.CurrentService).image, position=(0, (16 * self.position)))
 	
@@ -344,9 +344,6 @@ class ScrollTime():
 		self.image_composition.refresh() 
 
 	def tick(self):
-		#print "%s pos and state = %s" % (self.position, self.state)
-
-
 		#Update X min till arrival.
 		if self.CurrentService.TimePassedStatic() and (self.state == self.SCROLL_DECIDER or self.state == self.SCROLLING_WAIT or self.state == self.SCROLLING or self.state == self.WAIT_SYNC):
 			self.image_composition.remove_image(self.IDisplayTime)
@@ -420,7 +417,6 @@ class ScrollTime():
 		elif self.state == self.STUD_SCROLL:
 			if self.image_y_posA < 16:              
 				self.render()
-				print "stud scrolling"
 				self.image_y_posA += self.speed
 			else:
 				self.state = self.STUD_END
@@ -436,7 +432,10 @@ class ScrollTime():
 			self.render()
 			self.synchroniser.ready(self)
 			self.state = self.STUD
-			   
+		elif self.state == self.STUD:
+			if not self.is_waiting():
+				self.Controller.requestCardChange(self, self.position + 1)
+			
 		
 
 	def render(self):
@@ -512,27 +511,20 @@ class boardFixed():
 			self.bottom.tick()
 	
 	def requestCardChange(self, card, row):
-		print ("Row %s" % row)
-		print ("Len %i" % len(self.Services))
-		
 		if (self.x > Args.NumberOfCards or self.x >len(self.Services)-1):
 			self.x = 1 if Args.FixToArrive else 0
 			if LiveTime.TimePassed():  
 				self.Services = LiveTime.GetData()
-				print("New Data")
+				print("New Data Retrieved %s" % datetime.now().time())
 
 		if row > len(self.Services):       
-			print "Triger Stud"
 			card.changeCard(LiveTimeStud(),device)
 			return
 
 		if len(self.Services) <= 3:
-			print "LEss than three"
 			if self.Services[row-1].ID == card.CurrentService.ID:
-				print "Updating Card % i" % row
 				card.updateCard(self.Services[row-1],device)
 			else:
-				print "Changing Card % i" % row
 				card.changeCard(self.Services[row-1],device)
 		else:
 			if Args.FixToArrive and row == 1:
@@ -547,7 +539,6 @@ class boardFixed():
 					card.changeCard(self.Services[self.x % len(self.Services)],device)
 		
 		self.x = self.x + 1
-		print ""
 
 
 
