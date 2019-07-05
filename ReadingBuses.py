@@ -569,9 +569,9 @@ def is_time_between():
 
 #Main
 #Connects to the display and makes it update forever until ended by the user with a ctrl-c
-serial = spi(device=0,port=0, bus_speed_hz=16000000)
+#serial = spi(device=0,port=0, bus_speed_hz=16000000)
 
-actual_args=['--display', 'capture','--interface','spi','--width','256']
+actual_args=['--display', 'ssd1322','--interface','spi','--width','256','--rotate',str(Args.Rotation)]
 parser2 = cmdline.create_parser(description='luma.examples arguments')
 args = parser2.parse_args(actual_args)
 
