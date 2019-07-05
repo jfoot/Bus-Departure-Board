@@ -6,11 +6,11 @@ import argparse
 from PIL import ImageFont, Image, ImageDraw
 from luma.core.render import canvas
 from luma.core.interface.serial import spi
-from luma.oled.device import ssd1322
+from luma.core import cmdline, error
 from lxml import objectify
 from datetime import datetime, date
 from luma.core.image_composition import ImageComposition, ComposableImage
-
+#from demo_opts import get_device
 
 ##Start Up Paramarter Checks
 #Checks value is greater than Zero.
@@ -45,7 +45,7 @@ parser.add_argument("-z","--StaticUpdateLimit", help="Defines the amount of time
 parser.add_argument("-e","--EnergySaverMode", help="To save screen from burn in and prolong it's life it is recommend to have energy saving mode enabled. 'off' is default, between the hours set the screen will turn off. 'dim' will turn the screen brightness down, but not completely off. 'none' will do nothing and leave the screen on; this is not recommend, you can change your active hours instead.", type=str,choices=["none","dim","off"],default="off")
 parser.add_argument("-i","--InactiveHours", help="The peroid of time for which the display will go into 'Energy Saving Mode' if turned on; default is '23:00-07:00'", type=check_time,default="23:00-07:00")
 parser.add_argument("-u","--UpdateDays", help="The number of days for which the Pi will wait before rebooting and checking for a new update again during your energy saving period; defualt 3 days.", type=check_positive, default=3)
-parser.add_argument("-x","--ExcludeServices", help="List any services you do not wish to view. Make sure to capitalise correctly; defualt is nothing, ie show every service.",  nargs='*')
+parser.add_argument("-x","--ExcludeServices", default="", help="List any services you do not wish to view. Make sure to capitalise correctly; defualt is nothing, ie show every service.",  nargs='*')
 parser.add_argument("--ReducedAnimations", help="If you wish to stop the Via animation and cycle faster through the services use this tag to turn the animation off.", dest='ReducedAnimations', action='store_true')
 parser.add_argument("--UnfixNextToArrive",dest='FixToArrive', action='store_false', help="Keep the bus sonnest to next arrive at the very top of the display until it has left; by default true")
 parser.add_argument("--HideUnknownVias", help="If the API does not report any known via route a placeholder of 'Via Central Reading' is used. If you wish to stop the animation for unknowns use this tag.", dest='HideUnknownVias', action='store_true')
@@ -570,7 +570,14 @@ def is_time_between():
 #Main
 #Connects to the display and makes it update forever until ended by the user with a ctrl-c
 serial = spi(device=0,port=0, bus_speed_hz=16000000)
-device = ssd1322(serial_interface=serial, framebuffer="diff_to_previous",rotate=Args.Rotation)
+
+actual_args=['--display', 'capture','--interface','spi','--width','256']
+parser2 = cmdline.create_parser(description='luma.examples arguments')
+args = parser2.parse_args(actual_args)
+
+
+
+device = cmdline.create_device(args)
 image_composition = ImageComposition(device)
 board = boardFixed(image_composition,Args.Delay,device)
 FontTime = ImageFont.truetype("./time.otf",16)
