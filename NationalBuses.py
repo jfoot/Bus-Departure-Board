@@ -3,6 +3,7 @@ import time
 import math
 import os
 import argparse
+import json
 from PIL import ImageFont, Image, ImageDraw
 from luma.core.render import canvas
 from luma.core.interface.serial import spi
@@ -59,11 +60,12 @@ parser.add_argument("--max-frames", default=60,dest='maxframes', type=check_posi
 
 #Defines the required paramaters
 requiredNamed = parser.add_argument_group('required named arguments')
-requiredNamed.add_argument("-k","--APIKey", help="Your Reading Buses API Key, you can get your own from: http://rtl2.ods-live.co.uk/cms/apiservice", type=str,required=True)
+requiredNamed.add_argument("-a","--APIID", help="The API ID code for the Transport API, get your own from: https://developer.transportapi.com/", type=str,required=True)
+requiredNamed.add_argument("-k","--APIKey", help="The API Key code for the Transport API, get your own from: https://developer.transportapi.com/", type=str,required=True)
 requiredNamed.add_argument("-s","--StopID", help="The Naptan Code for the specific bus stop you wish to display.", type=str,required=True)
 Args = parser.parse_args()
 BasicFont = ImageFont.truetype("./lower.ttf",14)
-GenericVia = "Via Central Reading"
+
 
 ###
 # Below contains the class which gets API data from the Reading Buses API. You should pass the API key in as a paramater on startup.
@@ -88,27 +90,49 @@ class LiveTime(object):
 	LastUpdate = datetime.now()
 
 	def __init__(self, Data, Index):
-		self.ServiceNumber = "%s.%s" % (Index + 1, str(Data.LineRef)) if Args.ShowIndex else str(Data.LineRef)
-		self.Destination = str(Data.DestinationName)
-		self.SchArrival = str(Data.MonitoredCall.AimedArrivalTime).split("+")[0]
-		self.ExptArrival = str(getattr( Data.MonitoredCall, "ExpectedArrivalTime", "")).split("+")[0]
-		self.Via = str(getattr(Data, "Via", GenericVia))
+		self.ID =  str(Data['id'])
+		self.Operator = "%s.%s" % (Index + 1,str(Data['operator_name'])) if Args.ShowIndex else str(Data['operator_name'])
+		self.ServiceNumber = str(Data['line'])
+		self.Destination = str(Data['direction'])
+		self.SchArrival = str(Data['aimed_departure_time']) 	#This seems like it's the wrong way around, possiable API bug
+		self.ExptArrival = str(Data['best_departure_estimate'])
+		self.Via = self.GetComplexVia()
 		self.DisplayTime = self.GetDisplayTime()
-		self.ID =  str(Data.FramedVehicleJourneyRef.DatedVehicleJourneyRef)
-		self.LastStaticUpdate = datetime.now()
 
 	#Returns the value to display the time on the board.
 	def GetDisplayTime(self):
 		self.LastStaticUpdate = datetime.now()
-		if self.ExptArrival == "":
-			return " " + datetime.strptime(self.SchArrival, '%Y-%m-%dT%H:%M:%S').strftime("%H:%M" if (Args.TimeFormat==24) else  "%I:%M")
-		else:
-			Diff =  (datetime.strptime(self.ExptArrival, '%Y-%m-%dT%H:%M:%S') - datetime.now()).total_seconds() / 60
-			if Diff <= 2:
-				return ' Due'
-			if Diff >=15 :
-				return ' ' + datetime.strptime(self.SchArrival, '%Y-%m-%dT%H:%M:%S').strftime("%H:%M" if (Args.TimeFormat==24) else  "%I:%M")
-			return  ' %d min' % Diff
+		
+		Arrival = datetime.strptime(str(datetime.now().date()) + " "  + self.ExptArrival, '%Y-%m-%d %H:%M')
+			
+		Diff =  (Arrival - datetime.now()).total_seconds() / 60
+		if Diff <= 2:
+			return ' Due'
+		if Diff >=15 :
+			return ' ' + Arrival.time().strftime("%H:%M" if (Args.TimeFormat==24) else  "%I:%M")
+		return  ' %d min' % Diff
+
+
+	def GetComplexVia(self):
+		Via = "This is a " + self.Operator + " Service"
+		#Need to fix this so it removes repeated location suffixs.
+		#Need to make this optional such that it doesn't slow Pi down if not wantted.
+		#Need to make this more efficent, if it has already seen this bus before do NOT get the data again.
+
+		try:
+			tempLocs = json.loads(urllib2.urlopen(self.ID).read())
+			Via += ", via: "
+			for loc in tempLocs['stops']:
+				if loc['locality'] not in Via:
+					Via += loc['locality'] + ", "
+
+			#NEED to make this optional
+			self.Destination = tempLocs['stops'][-1]['stop_name']
+			return Via[:-2] + "."
+		except Exception as e:
+			print(str(e))
+		return Via + "."
+
 
 	@staticmethod
 	def TimePassed():
@@ -125,24 +149,15 @@ class LiveTime(object):
 		services = []
 
 		try:
-			raw = urllib2.urlopen("https://rtl2.ods-live.co.uk/api/siri/sm?key=%s&location=%s" % (Args.APIKey, Args.StopID)).read()
-			rawServices = objectify.fromstring(raw)
-		
-			#Makes sure the same service isn't got multiple times.
-			for root in rawServices.ServiceDelivery.StopMonitoringDelivery.MonitoredStopVisit:
-				service = root.MonitoredVehicleJourney
-				exsits = False
-				for current in services:
-					if current.ID == service.FramedVehicleJourneyRef.DatedVehicleJourneyRef:
-						exsits = True
-						break
-
-				if exsits == False and str(service.LineRef) not in Args.ExcludeServices:
+			tempServices = json.loads(urllib2.urlopen("https://transportapi.com/v3/uk/bus/stop/%s/live.json?app_id=%s&app_key=%s&group=no&limit=9&nextbuses=yes" %  (Args.StopID, Args.APIID, Args.APIKey, )).read())
+			for service in tempServices['departures']['all']:
+				if str(service['line']) not in Args.ExcludeServices:
 					services.append(LiveTime(service, len(services)))
 			return services
 		except Exception as e:
 			print(str(e))
 			return []
+
 
 
 ###
@@ -163,7 +178,7 @@ class TextImage():
 #Used to create the destination and via board.
 class TextImageComplex():
 	def __init__(self, device, destination, via, startOffset):
-		self.image = Image.new(device.mode, (device.width*2, 16))
+		self.image = Image.new(device.mode, (device.width*15, 16))
 		draw = ImageDraw.Draw(self.image)
 		draw.text((0, 0), destination, font=BasicFont, fill="white")
 		draw.text((device.width - startOffset, 0), via, font=BasicFont, fill="white")
@@ -595,7 +610,7 @@ def Splash():
 	if Args.SplashScreen:
 		with canvas(device) as draw:
 			draw.multiline_text((64, 10), "Departure Board", font= ImageFont.truetype("./Bold.ttf",20), align="center")
-			draw.multiline_text((45, 35), "Version : 1.2.RB -  By Jonathan Foot", font=ImageFont.truetype("./Skinny.ttf",15), align="center")
+			draw.multiline_text((45, 35), "Version : 0.5.OT -  By Jonathan Foot", font=ImageFont.truetype("./Skinny.ttf",15), align="center")
 		time.sleep(2.5)
 
 try:
