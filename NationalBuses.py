@@ -91,8 +91,8 @@ class LiveTime(object):
 
 	def __init__(self, Data, Index):
 		self.ID =  str(Data['id'])
-		self.Operator = "%s.%s" % (Index + 1,str(Data['operator_name'])) if Args.ShowIndex else str(Data['operator_name'])
-		self.ServiceNumber = str(Data['line'])
+		self.Operator = str(Data['operator_name'])
+		self.ServiceNumber = "%s.%s" % (Index + 1,str(Data['line_name'])) if Args.ShowIndex else str(Data['line_name']) 
 		self.Destination = str(Data['direction'])
 		self.SchArrival = str(Data['aimed_departure_time']) 	#This seems like it's the wrong way around, possiable API bug
 		self.ExptArrival = str(Data['best_departure_estimate'])
@@ -115,6 +115,8 @@ class LiveTime(object):
 
 	def GetComplexVia(self):
 		Via = "This is a " + self.Operator + " Service"
+		if Args.ReducedAnimations:
+			return Via
 		#Need to fix this so it removes repeated location suffixs.
 		#Need to make this optional such that it doesn't slow Pi down if not wantted.
 		#Need to make this more efficent, if it has already seen this bus before do NOT get the data again.
@@ -147,9 +149,8 @@ class LiveTime(object):
 	def GetData():
 		LiveTime.LastUpdate = datetime.now()
 		services = []
-
 		try:
-			tempServices = json.loads(urllib2.urlopen("https://transportapi.com/v3/uk/bus/stop/%s/live.json?app_id=%s&app_key=%s&group=no&limit=9&nextbuses=yes" %  (Args.StopID, Args.APIID, Args.APIKey, )).read())
+			tempServices = json.loads(urllib2.urlopen("https://transportapi.com/v3/uk/bus/stop/%s/live.json?app_id=%s&app_key=%s&group=no&limit=9&nextbuses=yes" %  (Args.StopID, Args.APIID, Args.APIKey)).read())
 			for service in tempServices['departures']['all']:
 				if str(service['line']) not in Args.ExcludeServices:
 					services.append(LiveTime(service, len(services)))
