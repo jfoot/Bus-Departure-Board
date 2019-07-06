@@ -577,14 +577,6 @@ DisplayParser = cmdline.create_parser(description='Dynamically connect to either
 device = cmdline.create_device( DisplayParser.parse_args(['--display', str(Args.Display),'--interface','spi','--width','256','--rotate',str(Args.Rotation),'--max-frames',str(Args.maxframes)]))
 
 
-
-
-
-
-
-
-
-
 image_composition = ImageComposition(device)
 board = boardFixed(image_composition,Args.Delay,device)
 FontTime = ImageFont.truetype("./time.otf",16)
