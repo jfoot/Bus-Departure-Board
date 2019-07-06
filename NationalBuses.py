@@ -48,8 +48,8 @@ parser.add_argument("-e","--EnergySaverMode", help="To save screen from burn in 
 parser.add_argument("-i","--InactiveHours", help="The peroid of time for which the display will go into 'Energy Saving Mode' if turned on; default is '23:00-07:00'", type=check_time,default="23:00-07:00")
 parser.add_argument("-u","--UpdateDays", help="The number of days for which the Pi will wait before rebooting and checking for a new update again during your energy saving period; defualt 3 days.", type=check_positive, default=3)
 parser.add_argument("-x","--ExcludeServices", default="", help="List any services you do not wish to view. Make sure to capitalise correctly; defualt is nothing, ie show every service.",  nargs='*')
-parser.add_argument("-m","--ViaMessageMode", choice=["full", "shorten", "reduced", "operator"], default="shorten", help="The Transport API doesn't specifically store a bus routes 'Via' message. This message can be created. full- longest message, contain both county and suburb for each location. shorten- contain only the suburb. reduced- contain every other suburb the bus visits. operator- only contain the name of the operator running the service. You can completely turn off this animation using the ‘—ReducedAnimations’ tag.")
-parser.add_argument("-o","--Destination", choice=["1","2"], default="1", help="Depending on the region the buses destination reported maybe a generic place holder location. If this is the case you can switch to mode 2 for the last stop name.")
+parser.add_argument("-m","--ViaMessageMode", choices=["full", "shorten", "reduced", "operator"], default="shorten", help="dsds")
+parser.add_argument("-o","--Destination", choices=["1","2"], default="1", help="Depending on the region the buses destination reported maybe a generic place holder location. If this is the case you can switch to mode 2 for the last stop name.")
 
 
 
@@ -71,7 +71,8 @@ requiredNamed.add_argument("-s","--StopID", help="The Naptan Code for the specif
 
 Args = parser.parse_args()
 BasicFont = ImageFont.truetype("./lower.ttf",14)
-
+Vias = {"0":"Via London Bridge"}
+Dest = {"0":"Central London"}
 
 ###
 # Below contains the class which gets API data from the Reading Buses API. You should pass the API key in as a paramater on startup.
@@ -121,31 +122,47 @@ class LiveTime(object):
 
 	def GetComplexVia(self):
 		Via = "This is a " + self.Operator + " Service"
-
-        reduced = False
+		
+		if self.ServiceNumber in Vias:
+			if Args.Destination == "2":
+				self.Destination = Dest[self.ServiceNumber
+			return Vias[self.SerivceNumber]
+		
+		reduced = False
+		lastAdded = ""
 		try:
 			tempLocs = json.loads(urllib2.urlopen(self.ID).read())
+			print "Get new"
 			if Args.Destination == "2":
-			    self.Destination = tempLocs['stops'][-1]['stop_name']
-           
-            if Args.ReducedAnimations or Args.ViaMessageMode == "operator":
-			    return Via + "."
+				Dest[self.ServiceNumber] = tempLocs['stops'][-1]['stop_name']
+				self.Destination = Dest[self.ServiceNumber]
+		   
+			if Args.ReducedAnimations or Args.ViaMessageMode == "operator":
+				Vias[self.SerivceNumber] = 	Via + "."			         
+				return Vias[self.SerivceNumber]
 
-            Via += ", via: "
-			for loc in tempLocs['stops']:
-				if loc['locality'] not in Via:
-                    if Args.ViaMessageMode == "full":
-				    	Via += loc['locality'] + ", "
-                    elif Args.ViaMessageMode =="shorten":
-                        Via += loc['locality'].split(',')[0] + ", "
-                    elif Args.ViaMessageMode =="reduced":
-                        reduced = not reduced
-                        if reduced:
-                            Via += loc['locality'].split(',')[0] + ", "           
-			return Via[:-2] + "."
+			Via += ", via: "
+			for loc in tempLocs['stops']:	
+				if Args.ViaMessageMode == "full":
+					if loc['locality'] not in Via:
+						Via += loc['locality'] + ", "
+				elif Args.ViaMessageMode =="shorten":
+					if loc['locality'].split(',')[0] not in Via:
+						Via += loc['locality'].split(',')[0] + ", "
+				elif Args.ViaMessageMode =="reduced":
+					if loc['locality'].split(',')[0] not in Via:
+						if loc['locality'].split(',')[0] != lastAdded:
+							reduced = not reduced
+							if reduced:
+								Via += loc['locality'].split(',')[0] + ", "  
+							else:
+								lastAdded = loc['locality'].split(',')[0]
+			Vias[self.SerivceNumber] = 	Via[:-2] + "."			         
+			return Vias[self.SerivceNumber]
 		except Exception as e:
 			print(str(e))
-		return Via + "."
+		Vias[self.SerivceNumber] = 	Via + "."			         
+		return Vias[self.SerivceNumber]
 
 
 	@staticmethod
