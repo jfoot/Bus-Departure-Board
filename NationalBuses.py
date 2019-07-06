@@ -48,6 +48,11 @@ parser.add_argument("-e","--EnergySaverMode", help="To save screen from burn in 
 parser.add_argument("-i","--InactiveHours", help="The peroid of time for which the display will go into 'Energy Saving Mode' if turned on; default is '23:00-07:00'", type=check_time,default="23:00-07:00")
 parser.add_argument("-u","--UpdateDays", help="The number of days for which the Pi will wait before rebooting and checking for a new update again during your energy saving period; defualt 3 days.", type=check_positive, default=3)
 parser.add_argument("-x","--ExcludeServices", default="", help="List any services you do not wish to view. Make sure to capitalise correctly; defualt is nothing, ie show every service.",  nargs='*')
+parser.add_argument("-m","--ViaMessageMode", choice=["full", "shorten", "reduced", "operator"], default="shorten", help="The Transport API doesn't specifically store a bus routes 'Via' message. This message can be created. full- longest message, contain both county and suburb for each location. shorten- contain only the suburb. reduced- contain every other suburb the bus visits. operator- only contain the name of the operator running the service. You can completely turn off this animation using the ‘—ReducedAnimations’ tag.")
+parser.add_argument("-o","--Destination", choice=["1","2"], default="1", help="Depending on the region the buses destination reported maybe a generic place holder location. If this is the case you can switch to mode 2 for the last stop name.")
+
+
+
 parser.add_argument("--ReducedAnimations", help="If you wish to stop the Via animation and cycle faster through the services use this tag to turn the animation off.", dest='ReducedAnimations', action='store_true')
 parser.add_argument("--UnfixNextToArrive",dest='FixToArrive', action='store_false', help="Keep the bus sonnest to next arrive at the very top of the display until it has left; by default true")
 parser.add_argument("--HideUnknownVias", help="If the API does not report any known via route a placeholder of 'Via Central Reading' is used. If you wish to stop the animation for unknowns use this tag.", dest='HideUnknownVias', action='store_true')
@@ -63,6 +68,7 @@ requiredNamed = parser.add_argument_group('required named arguments')
 requiredNamed.add_argument("-a","--APIID", help="The API ID code for the Transport API, get your own from: https://developer.transportapi.com/", type=str,required=True)
 requiredNamed.add_argument("-k","--APIKey", help="The API Key code for the Transport API, get your own from: https://developer.transportapi.com/", type=str,required=True)
 requiredNamed.add_argument("-s","--StopID", help="The Naptan Code for the specific bus stop you wish to display.", type=str,required=True)
+
 Args = parser.parse_args()
 BasicFont = ImageFont.truetype("./lower.ttf",14)
 
@@ -115,21 +121,27 @@ class LiveTime(object):
 
 	def GetComplexVia(self):
 		Via = "This is a " + self.Operator + " Service"
-		if Args.ReducedAnimations:
-			return Via
-		#Need to fix this so it removes repeated location suffixs.
-		#Need to make this optional such that it doesn't slow Pi down if not wantted.
-		#Need to make this more efficent, if it has already seen this bus before do NOT get the data again.
 
+        reduced = False
 		try:
 			tempLocs = json.loads(urllib2.urlopen(self.ID).read())
-			Via += ", via: "
+			if Args.Destination == "2":
+			    self.Destination = tempLocs['stops'][-1]['stop_name']
+           
+            if Args.ReducedAnimations or Args.ViaMessageMode == "operator":
+			    return Via + "."
+
+            Via += ", via: "
 			for loc in tempLocs['stops']:
 				if loc['locality'] not in Via:
-					Via += loc['locality'] + ", "
-
-			#NEED to make this optional
-			self.Destination = tempLocs['stops'][-1]['stop_name']
+                    if Args.ViaMessageMode == "full":
+				    	Via += loc['locality'] + ", "
+                    elif Args.ViaMessageMode =="shorten":
+                        Via += loc['locality'].split(',')[0] + ", "
+                    elif Args.ViaMessageMode =="reduced":
+                        reduced = not reduced
+                        if reduced:
+                            Via += loc['locality'].split(',')[0] + ", "           
 			return Via[:-2] + "."
 		except Exception as e:
 			print(str(e))
