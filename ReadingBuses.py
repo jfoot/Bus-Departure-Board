@@ -10,7 +10,8 @@ from luma.core import cmdline, error
 from lxml import objectify
 from datetime import datetime, date
 from luma.core.image_composition import ImageComposition, ComposableImage
-#from demo_opts import get_device
+
+
 
 ##Start Up Paramarter Checks
 #Checks value is greater than Zero.
@@ -51,6 +52,8 @@ parser.add_argument("--UnfixNextToArrive",dest='FixToArrive', action='store_fals
 parser.add_argument("--HideUnknownVias", help="If the API does not report any known via route a placeholder of 'Via Central Reading' is used. If you wish to stop the animation for unknowns use this tag.", dest='HideUnknownVias', action='store_true')
 parser.add_argument('--no-splashscreen', dest='SplashScreen', action='store_false',help="Do you wish to see the splash screen at start up; recommended and on by default.")
 parser.add_argument('--ShowIndex', dest='ShowIndex', action='store_true',help="Do you wish to see index position for each service due to arrive.")
+parser.add_argument("--Display", default="ssd1322", choices=['ssd1322','pygame','capture','gifanim'], help="Used for devlopment purposes, allows you to switch from a phyiscal display to a virtual emulated one; defualt 'ssd1322'")
+parser.add_argument("--max-frames", default=60,dest='maxframes', type=check_positive, help="Used only when using gifanim emulator, sets how long the gif should be.")
 
 
 
@@ -569,15 +572,9 @@ def is_time_between():
 
 #Main
 #Connects to the display and makes it update forever until ended by the user with a ctrl-c
-serial = spi(device=0,port=0, bus_speed_hz=16000000)
+DisplayParser = cmdline.create_parser(description='Dynamically connect to either a vritual or physical display.')
+device = cmdline.create_device( DisplayParser.parse_args(['--display', str(Args.Display),'--interface','spi','--width','256','--rotate',str(Args.Rotation),'--max-frames',str(Args.maxframes)]))
 
-actual_args=['--display', 'capture','--interface','spi','--width','256']
-parser2 = cmdline.create_parser(description='luma.examples arguments')
-args = parser2.parse_args(actual_args)
-
-
-
-device = cmdline.create_device(args)
 image_composition = ImageComposition(device)
 board = boardFixed(image_composition,Args.Delay,device)
 FontTime = ImageFont.truetype("./time.otf",16)
