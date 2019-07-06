@@ -572,8 +572,18 @@ def is_time_between():
 
 #Main
 #Connects to the display and makes it update forever until ended by the user with a ctrl-c
+
 DisplayParser = cmdline.create_parser(description='Dynamically connect to either a vritual or physical display.')
 device = cmdline.create_device( DisplayParser.parse_args(['--display', str(Args.Display),'--interface','spi','--width','256','--rotate',str(Args.Rotation),'--max-frames',str(Args.maxframes)]))
+
+
+
+
+
+
+
+
+
 
 image_composition = ImageComposition(device)
 board = boardFixed(image_composition,Args.Delay,device)
