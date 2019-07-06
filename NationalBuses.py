@@ -42,14 +42,17 @@ parser.add_argument("-d","--Delay", help="How long the display will pause before
 parser.add_argument("-r","--RecoveryTime", help="How long the display will wait before attempting to get new data again after previously failing; default is 100, must be greater than 0.", type=check_positive,default=100)
 parser.add_argument("-n","--NumberOfCards", help="The maximum number of cards you will see before forcing a new data retrieval, a limit is recommend to prevent cycling through data which may become out of data or going too far into scheduled buses; default is 9, must be greater than 0.", type=check_positive,default=100)
 parser.add_argument("-y","--Rotation", help="Defines which way up the screen is rendered; default is 2", type=int,default=2,choices=[0,2])
-parser.add_argument("-l","--RequestLimit", help="Defines the minium amount of time the display must wait before making a new data request; default is 55(seconds)", type=check_positive,default=55)
+parser.add_argument("-l","--RequestLimit", help="Defines the minium amount of time the display must wait before making a new data request; default is 70(seconds)", type=check_positive,default=70)
 parser.add_argument("-z","--StaticUpdateLimit", help="Defines the amount of time the display will wait before updating the expected arrival time (based upon it's last known predicted arrival time); defualt is  15(seconds), this should be lower than your 'RequestLimit'", type=check_positive,default=15)
 parser.add_argument("-e","--EnergySaverMode", help="To save screen from burn in and prolong it's life it is recommend to have energy saving mode enabled. 'off' is default, between the hours set the screen will turn off. 'dim' will turn the screen brightness down, but not completely off. 'none' will do nothing and leave the screen on; this is not recommend, you can change your active hours instead.", type=str,choices=["none","dim","off"],default="off")
 parser.add_argument("-i","--InactiveHours", help="The peroid of time for which the display will go into 'Energy Saving Mode' if turned on; default is '23:00-07:00'", type=check_time,default="23:00-07:00")
 parser.add_argument("-u","--UpdateDays", help="The number of days for which the Pi will wait before rebooting and checking for a new update again during your energy saving period; defualt 3 days.", type=check_positive, default=3)
 parser.add_argument("-x","--ExcludeServices", default="", help="List any services you do not wish to view. Make sure to capitalise correctly; defualt is nothing, ie show every service.",  nargs='*')
-parser.add_argument("-m","--ViaMessageMode", choices=["full", "shorten", "reduced", "operator"], default="shorten", help="dsds")
+parser.add_argument("-m","--ViaMessageMode", choices=["full", "shorten", "reduced", "fixed", "operator"], default="shorten", help="The Transport API does not specifically store a bus routes 'Via' message. This message can be created instead using one of the following methods. full-the longest message contains both the county and suburb for each location. shorten- contains only the suburb (defualt). reduced- contains every C suburb visited where C is the ReducedValue 'c'. operator- only contains the name of the operator running the service. fixed- show at max F, where 'F' is the FixedLocations. This will take F locations evenly between all locations. You can also completely turn off this animation using the '--ReducedAnimations' tag.")
+parser.add_argument("-c","--ReducedValue", type=check_positive, default=2, help="If you are using a 'reduced' via message this value is for every n suburbs visited report it in the via; default is 2 ie every other suburb visited report.")
 parser.add_argument("-o","--Destination", choices=["1","2"], default="1", help="Depending on the region the buses destination reported maybe a generic place holder location. If this is the case you can switch to mode 2 for the last stop name.")
+parser.add_argument("-f","--FixedLocations",type=check_positive, default=3, help="If you are using 'fixed' via message this value will limit the max number of via destinations. Taking F locations evenly between a route.")
+
 
 
 
@@ -103,7 +106,7 @@ class LiveTime(object):
 		self.Destination = str(Data['direction'])
 		self.SchArrival = str(Data['aimed_departure_time']) 	#This seems like it's the wrong way around, possiable API bug
 		self.ExptArrival = str(Data['best_departure_estimate'])
-		self.Via = self.GetComplexVia()
+		self.Via = self.GetComplexVia(str(Data['line_name']) )
 		self.DisplayTime = self.GetDisplayTime()
 
 	#Returns the value to display the time on the board.
@@ -120,49 +123,61 @@ class LiveTime(object):
 		return  ' %d min' % Diff
 
 
-	def GetComplexVia(self):
+	def GetComplexVia(self, Service):
 		Via = "This is a " + self.Operator + " Service"
 		
-		if self.ServiceNumber in Vias:
+		if Service in Vias:
 			if Args.Destination == "2":
-				self.Destination = Dest[self.ServiceNumber
-			return Vias[self.SerivceNumber]
-		
-		reduced = False
-		lastAdded = ""
+				self.Destination = Dest[Service]
+			print "found previously"
+			return Vias[Service]
+	
+		ViasTemp = []
 		try:
 			tempLocs = json.loads(urllib2.urlopen(self.ID).read())
 			print "Get new"
 			if Args.Destination == "2":
-				Dest[self.ServiceNumber] = tempLocs['stops'][-1]['stop_name']
-				self.Destination = Dest[self.ServiceNumber]
+				Dest[Service] = tempLocs['stops'][-1]['stop_name']
+				self.Destination = Dest[Service]
 		   
 			if Args.ReducedAnimations or Args.ViaMessageMode == "operator":
-				Vias[self.SerivceNumber] = 	Via + "."			         
-				return Vias[self.SerivceNumber]
+				Vias[Service] = 	Via + "."			         
+				return Vias[Service]
 
 			Via += ", via: "
-			for loc in tempLocs['stops']:	
+			for loc in tempLocs['stops']:
 				if Args.ViaMessageMode == "full":
-					if loc['locality'] not in Via:
+					if (loc['locality'] + ", ") not in Via:
 						Via += loc['locality'] + ", "
 				elif Args.ViaMessageMode =="shorten":
-					if loc['locality'].split(',')[0] not in Via:
-						Via += loc['locality'].split(',')[0] + ", "
-				elif Args.ViaMessageMode =="reduced":
-					if loc['locality'].split(',')[0] not in Via:
-						if loc['locality'].split(',')[0] != lastAdded:
-							reduced = not reduced
-							if reduced:
-								Via += loc['locality'].split(',')[0] + ", "  
-							else:
-								lastAdded = loc['locality'].split(',')[0]
-			Vias[self.SerivceNumber] = 	Via[:-2] + "."			         
-			return Vias[self.SerivceNumber]
+					if (str(loc['locality'].split(',')[0]) + ", ") not in Via:
+						Via += (str(loc['locality'].split(',')[0]) + ", ")
+				elif Args.ViaMessageMode =="reduced" or  Args.ViaMessageMode == "fixed":
+					if (str(loc['locality'].split(',')[0]) + ", ") not in ViasTemp:
+						ViasTemp.append(str(loc['locality'].split(',')[0]) + ", ")  
+
+			if Args.ViaMessageMode =="reduced":
+				for i in range(len(ViasTemp)): 
+					if i % Args.ReducedValue:
+						Via += ViasTemp[i]
+
+			if Args.ViaMessageMode =="fixed":
+				x = len(ViasTemp) // Args.FixedLocations if len(ViasTemp) // Args.FixedLocations != 0 else 1
+				z = 0
+				for i in range(len(ViasTemp)): 
+					if i % x:
+						Via += ViasTemp[i]
+						z += 1
+				if z !=  Args.FixedLocations:
+					Via += ViasTemp[len(ViasTemp) - 1]
+
+			Vias[Service] = Via[:-2] + "."			         
+			print Vias[Service]
+			return Vias[Service]
 		except Exception as e:
 			print(str(e))
-		Vias[self.SerivceNumber] = 	Via + "."			         
-		return Vias[self.SerivceNumber]
+		Vias[Service] = Via + "."			         
+		return Vias[Service]
 
 
 	@staticmethod
