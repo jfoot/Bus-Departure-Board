@@ -170,7 +170,6 @@ class LiveTime(object):
 
 
 			Vias[Service] = Via[:-2] + "."			         
-			print Vias[Service]
 			return Vias[Service]
 		except Exception as e:
 			print(str(e))
