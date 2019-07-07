@@ -53,13 +53,12 @@ parser.add_argument("-c","--ReducedValue", type=check_positive, default=2, help=
 parser.add_argument("-o","--Destination", choices=["1","2"], default="1", help="Depending on the region the buses destination reported maybe a generic place holder location. If this is the case you can switch to mode 2 for the last stop name.")
 parser.add_argument("-f","--FixedLocations",type=check_positive, default=3, help="If you are using 'fixed' via message this value will limit the max number of via destinations. Taking F locations evenly between a route.")
 
-
-
-
+parser.add_argument("--ExtraLargeLineName", dest='LargeLineName', action='store_true', help="By default the service number/ name assumes it will be under 3 charcters in length ie 0 - 999. Some regions may use words, such as 'Indigo' Service in Nottingham. Use this tag to expand the named region. When this is on you can not also have show index turned on.")
+parser.add_argument("--ShowOperator",  dest='ShowOperator', action='store_true', help="If at the start of the Via message you want to say both the operator of the service and the Via message use this to turn it on; by defualt it is off.")
 parser.add_argument("--ReducedAnimations", help="If you wish to stop the Via animation and cycle faster through the services use this tag to turn the animation off.", dest='ReducedAnimations', action='store_true')
 parser.add_argument("--UnfixNextToArrive",dest='FixToArrive', action='store_false', help="Keep the bus sonnest to next arrive at the very top of the display until it has left; by default true")
 parser.add_argument('--no-splashscreen', dest='SplashScreen', action='store_false',help="Do you wish to see the splash screen at start up; recommended and on by default.")
-parser.add_argument('--ShowIndex', dest='ShowIndex', action='store_true',help="Do you wish to see index position for each service due to arrive.")
+parser.add_argument('--ShowIndex', dest='ShowIndex', action='store_true',help="Do you wish to see index position for each service due to arrive. This can not be turned on with 'ExtraLargeLineName'")
 parser.add_argument("--Display", default="ssd1322", choices=['ssd1322','pygame','capture','gifanim'], help="Used for devlopment purposes, allows you to switch from a phyiscal display to a virtual emulated one; defualt 'ssd1322'")
 parser.add_argument("--max-frames", default=60,dest='maxframes', type=check_positive, help="Used only when using gifanim emulator, sets how long the gif should be.")
 
@@ -73,9 +72,14 @@ requiredNamed.add_argument("-s","--StopID", help="The Naptan Code for the specif
 
 Args = parser.parse_args()
 BasicFont = ImageFont.truetype("./lower.ttf",14)
+SmallFont = ImageFont.truetype("./lower.ttf",12)
 Vias = {"0":"Via London Bridge"}
 Dest = {"0":"Central London"}
 
+
+if Args.LargeLineName and Args.ShowIndex:
+	print "You can not have both '--ExtraLargeLineName' and '--ShowIndex' turned on at the same time."
+	exit()
 ###
 # Below contains the class which gets API data from the Reading Buses API. You should pass the API key in as a paramater on startup.
 ###
@@ -123,14 +127,17 @@ class LiveTime(object):
 
 
 	def GetComplexVia(self, Service):
-		Via = "This is a " + self.Operator + " Service"
+		Via = ""
+		if Args.ShowOperator or Args.ViaMessageMode == "operator":
+			Via = "This is a " + self.Operator + " Service"
 		
+		#If the data has already been retrieved don't make another uneeded request.
 		if Service in Vias:
 			if Args.Destination == "2":
 				self.Destination = Dest[Service]
-
 			return Vias[Service]
-	
+		
+		#Else this is the first time finding this service so look it up.
 		ViasTemp = []
 		try:
 			tempLocs = json.loads(urllib2.urlopen(self.ID).read())
@@ -140,10 +147,10 @@ class LiveTime(object):
 				self.Destination = Dest[Service]
 		   
 			if Args.ReducedAnimations or Args.ViaMessageMode == "operator":
-				Vias[Service] = 	Via + "."			         
+				Vias[Service] = Via + "."			         
 				return Vias[Service]
 
-			Via += ", via: "
+			Via += " Via: "
 			for loc in tempLocs['stops']:
 				if Args.ViaMessageMode == "full":
 					if (loc['locality'] + ", ") not in Via:
@@ -173,7 +180,8 @@ class LiveTime(object):
 			return Vias[Service]
 		except Exception as e:
 			print(str(e))
-		Vias[Service] = Via + "."			         
+		Vias[Service] = Via + "."
+		Dest[Service] = self.Destination
 		return Vias[Service]
 
 
@@ -216,14 +224,24 @@ class TextImage():
 		self.width = 5 + draw.textsize(text, BasicFont)[0]
 		self.height = 5 + draw.textsize(text, BasicFont)[1]
 		del draw
+		
+class TextImageServiceNumber():
+	def __init__(self, device, text):
+		self.image = Image.new(device.mode, (device.width, 16))
+		draw = ImageDraw.Draw(self.image)
+		draw.text((0, 0), text, font=BasicFont if len(text) <= 3 else SmallFont, fill="white")
+	
+		self.width = 5 + draw.textsize(text, BasicFont)[0]
+		self.height = 5 + draw.textsize(text, BasicFont)[1]
+		del draw
 
 #Used to create the destination and via board.
 class TextImageComplex():
 	def __init__(self, device, destination, via, startOffset):
-		self.image = Image.new(device.mode, (device.width*15, 16))
+		self.image = Image.new(device.mode, (device.width*20, 16))
 		draw = ImageDraw.Draw(self.image)
 		draw.text((0, 0), destination, font=BasicFont, fill="white")
-		draw.text((device.width - startOffset, 0), via, font=BasicFont, fill="white")
+		draw.text((max((device.width - startOffset), (draw.textsize(destination, font=BasicFont)[0]) + 6), 0), via, font=BasicFont, fill="white")
 			
 		self.width = device.width + draw.textsize(via, BasicFont)[0]  - startOffset
 		self.height = 16
@@ -237,12 +255,12 @@ class StaticTextImage():
 		displayTimeTempPrevious = TextImage(device, previous_service.DisplayTime)
 		displayTimeTemp = TextImage(device, service.DisplayTime)
 
-		draw.text((0, 16), service.ServiceNumber, font=BasicFont, fill="white")
+		draw.text((0, 16), service.ServiceNumber, font=BasicFont if len(service.ServiceNumber) <= 3 else SmallFont, fill="white")
 		draw.text((device.width - displayTimeTemp.width, 16), service.DisplayTime, font=BasicFont, fill="white")
-		draw.text((45 if Args.ShowIndex else 30, 16), service.Destination, font=BasicFont, fill="white")	
+		draw.text((45 if Args.ShowIndex or Args.LargeLineName else 30, 16), service.Destination, font=BasicFont, fill="white")	
 
-		draw.text((45 if Args.ShowIndex else 30, 0), previous_service.Destination, font=BasicFont, fill="white")	
-		draw.text((0, 0), previous_service.ServiceNumber, font=BasicFont, fill="white")
+		draw.text((45 if Args.ShowIndex or Args.LargeLineName else 30, 0), previous_service.Destination, font=BasicFont, fill="white")	
+		draw.text((0, 0), previous_service.ServiceNumber, font=BasicFont if len(previous_service.ServiceNumber) <= 3 else SmallFont, fill="white")
 		draw.text((device.width - displayTimeTempPrevious.width, 0), previous_service.DisplayTime, font=BasicFont, fill="white")
 	
 		self.width = device.width 
@@ -349,8 +367,8 @@ class ScrollTime():
 		displayTimeTemp = TextImage(device, service.DisplayTime)
 		IDestinationTemp  = TextImageComplex(device, service.Destination,service.Via, displayTimeTemp.width)
 
-		self.IDestination =  ComposableImage(IDestinationTemp.image.crop((0,0,IDestinationTemp.width + 10,16)), position=(45 if Args.ShowIndex else 30, 16 * self.position))
-		self.IServiceNumber =  ComposableImage(TextImage(device, service.ServiceNumber).image.crop((0,0,45 if Args.ShowIndex else 30,16)), position=(0, 16 * self.position))
+		self.IDestination =  ComposableImage(IDestinationTemp.image.crop((0,0,IDestinationTemp.width + 10,16)), position=(45 if Args.ShowIndex or Args.LargeLineName else 30, 16 * self.position))
+		self.IServiceNumber =  ComposableImage(TextImageServiceNumber(device, service.ServiceNumber).image.crop((0,0,45 if Args.ShowIndex or Args.LargeLineName else 30,16)), position=(0, 16 * self.position))
 		self.IDisplayTime =  ComposableImage(displayTimeTemp.image, position=(device.width - displayTimeTemp.width, 16 * self.position))
 
 	def updateCard(self, newService, device):
@@ -652,7 +670,7 @@ def Splash():
 	if Args.SplashScreen:
 		with canvas(device) as draw:
 			draw.multiline_text((64, 10), "Departure Board", font= ImageFont.truetype("./Bold.ttf",20), align="center")
-			draw.multiline_text((45, 35), "Version : 0.5.OT -  By Jonathan Foot", font=ImageFont.truetype("./Skinny.ttf",15), align="center")
+			draw.multiline_text((45, 35), "Version : 1.0.OT -  By Jonathan Foot", font=ImageFont.truetype("./Skinny.ttf",15), align="center")
 		time.sleep(2.5)
 
 try:
