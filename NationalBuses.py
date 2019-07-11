@@ -1,9 +1,10 @@
 import urllib2
 import time
 import math
-import os
-import argparse
+import inspect,os
+import sys
 import json
+import argparse
 from PIL import ImageFont, Image, ImageDraw
 from luma.core.render import canvas
 from luma.core.interface.serial import spi
@@ -52,7 +53,6 @@ parser.add_argument("-m","--ViaMessageMode", choices=["full", "shorten", "reduce
 parser.add_argument("-c","--ReducedValue", type=check_positive, default=2, help="If you are using a 'reduced' via message this value is for every n suburbs visited report it in the via; default is 2 ie every other suburb visited report.")
 parser.add_argument("-o","--Destination", choices=["1","2"], default="1", help="Depending on the region the buses destination reported maybe a generic place holder location. If this is the case you can switch to mode 2 for the last stop name.")
 parser.add_argument("-f","--FixedLocations",type=check_positive, default=3, help="If you are using 'fixed' via message this value will limit the max number of via destinations. Taking F locations evenly between a route.")
-
 parser.add_argument("--ExtraLargeLineName", dest='LargeLineName', action='store_true', help="By default the service number/ name assumes it will be under 3 charcters in length ie 0 - 999. Some regions may use words, such as 'Indigo' Service in Nottingham. Use this tag to expand the named region. When this is on you can not also have show index turned on.")
 parser.add_argument("--ShowOperator",  dest='ShowOperator', action='store_true', help="If at the start of the Via message you want to say both the operator of the service and the Via message use this to turn it on; by defualt it is off.")
 parser.add_argument("--ReducedAnimations", help="If you wish to stop the Via animation and cycle faster through the services use this tag to turn the animation off.", dest='ReducedAnimations', action='store_true')
@@ -71,15 +71,15 @@ requiredNamed.add_argument("-k","--APIKey", help="The API Key code for the Trans
 requiredNamed.add_argument("-s","--StopID", help="The Naptan Code for the specific bus stop you wish to display.", type=str,required=True)
 
 Args = parser.parse_args()
-BasicFont = ImageFont.truetype("./lower.ttf",14)
-SmallFont = ImageFont.truetype("./lower.ttf",12)
+BasicFont = ImageFont.truetype("%s/lower.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),14)
+SmallFont = ImageFont.truetype("%s/lower.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),12)
 Vias = {"0":"Via London Bridge"}
 Dest = {"0":"Central London"}
 
 
 if Args.LargeLineName and Args.ShowIndex:
 	print "You can not have both '--ExtraLargeLineName' and '--ShowIndex' turned on at the same time."
-	exit()
+	sys.exit()
 ###
 # Below contains the class which gets API data from the Reading Buses API. You should pass the API key in as a paramater on startup.
 ###
@@ -145,7 +145,7 @@ class LiveTime(object):
 			if Args.Destination == "2":
 				Dest[Service] = tempLocs['stops'][-1]['stop_name']
 				self.Destination = Dest[Service]
-		   
+		
 			if Args.ReducedAnimations or Args.ViaMessageMode == "operator":
 				Vias[Service] = Via + "."			         
 				return Vias[Service]
@@ -411,7 +411,7 @@ class ScrollTime():
 		
 		self.state = self.WAIT_STUD if (newService.ID == "0") else self.WAIT_OPENING
 		
-	def __del__(self):
+	def delete(self):
 		try:
 			self.image_composition.remove_image(self.IStaticOld)
 			self.image_composition.remove_image(self.rectangle)
@@ -557,18 +557,13 @@ class boardFixed():
 		self.device = device
 		self.ticks = 0
 		self.setInitalCards()
+		self.State = "alive"
 	
 		NoServiceTemp = NoService(device)
 		self.NoServices = ComposableImage(NoServiceTemp.image, position=(device.width/2- NoServiceTemp.width/2,device.height/2-NoServiceTemp.height/2))
 
 		self.top.addPartner(self.middel)
 		self.middel.addPartner(self.bottom)
-	
-	def __del__(self):
-		del self.top
-		del self.middel
-		del self.bottom
-		self.image_composition.refresh()
 
 
 	#Set up the cards for the inital starting animation.
@@ -581,12 +576,19 @@ class boardFixed():
 	def tick(self):
 		#If no data can be found.
 		if len(self.Services) == 0:
-			self.image_composition.add_image(self.NoServices)
+			if self.ticks == 0:
+				self.image_composition.add_image(self.NoServices)
+
 			#Wait a peroid of time then try getting new data again.
 			if not self.is_waiting():
-				self.Services = LiveTime.GetData()  
-				self.setInitalCards()
+				self.top.delete()
+				del self.top
+				self.middel.delete()
+				del self.middel
+				self.bottom.delete()
+				del self.bottom
 				self.image_composition.remove_image(self.NoServices)
+				self.State = "dead"
 		else:
 			self.top.tick()
 			self.middel.tick()
@@ -654,7 +656,7 @@ device = cmdline.create_device( DisplayParser.parse_args(['--display', str(Args.
 
 image_composition = ImageComposition(device)
 board = boardFixed(image_composition,Args.Delay,device)
-FontTime = ImageFont.truetype("./time.otf",16)
+FontTime = ImageFont.truetype("%s/time.otf"  % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),16)
 device.contrast(255)
 energyMode = "normal"
 StartUpDate = datetime.now().date()
@@ -669,9 +671,9 @@ def display():
 def Splash():
 	if Args.SplashScreen:
 		with canvas(device) as draw:
-			draw.multiline_text((64, 10), "Departure Board", font= ImageFont.truetype("./Bold.ttf",20), align="center")
-			draw.multiline_text((45, 35), "Version : 1.0.OT -  By Jonathan Foot", font=ImageFont.truetype("./Skinny.ttf",15), align="center")
-		time.sleep(2.5)
+			draw.multiline_text((64, 10), "Departure Board", font= ImageFont.truetype("%s/Bold.ttf"  % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),20), align="center")
+			draw.multiline_text((45, 35), "Version : 1.1.OT -  By Jonathan Foot", font=ImageFont.truetype("%s/Skinny.ttf"  % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
+        time.sleep(30) #Wait such a long time to allow the device to startup and connect to a WIFI source first.
 
 try:
 
@@ -679,10 +681,18 @@ try:
 
 	while True:
 		time.sleep(0.02)
+
+		if board.State == "dead":
+			del board
+			board = boardFixed(image_composition,Args.Delay,device)
+			device.clear()
+
+
 		if Args.EnergySaverMode != "none" and is_time_between():
 			if (datetime.now().date() - StartUpDate).days >= Args.UpdateDays:
-				print "Restarting Pi To Check For Updates On Start Up."
-				os.system("sudo reboot")
+				print "Checking for updates and then restarting Pi."
+				os.system("sudo git -C %s pull; sudo reboot" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))))
+				sys.exit()
 			if Args.EnergySaverMode == "dim":
 				if energyMode == "normal":
 					device.contrast(15)
@@ -691,6 +701,7 @@ try:
 			elif Args.EnergySaverMode == "off":
 				if energyMode == "normal":
 					del board
+					device.clear()
 					device.hide()
 					energyMode = "off"      
 		else:
