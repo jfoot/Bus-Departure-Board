@@ -56,8 +56,7 @@ parser.add_argument('--no-splashscreen', dest='SplashScreen', action='store_fals
 parser.add_argument("--Display", default="ssd1322", choices=['ssd1322','pygame','capture','gifanim'], help="Used for devlopment purposes, allows you to switch from a phyiscal display to a virtual emulated one; defualt 'ssd1322'")
 parser.add_argument("--max-frames", default=60,dest='maxframes', type=check_positive, help="Used only when using gifanim emulator, sets how long the gif should be.")
 
-#print os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-#print ""
+
 
 #Defines the required paramaters
 requiredNamed = parser.add_argument_group('required named arguments')
@@ -505,16 +504,15 @@ class boardFixed():
         if len(self.Services) == 0:
             if self.ticks == 0:
                 self.image_composition.add_image(self.NoServices)
-                print "run once"
-            print "run a few times"
+
             #Wait a peroid of time then try getting new data again.
             if not self.is_waiting():
                 self.top.delete()
-                #del self.top
+                del self.top
                 self.middel.delete()
-                #del self.middel
+                del self.middel
                 self.bottom.delete()
-                #del self.bottom
+                del self.bottom
                 self.image_composition.remove_image(self.NoServices)
                 self.State = "dead"
         else:
@@ -601,7 +599,7 @@ def Splash():
         with canvas(device) as draw:
             draw.multiline_text((64, 10), "Departure Board", font= ImageFont.truetype("%s/Bold.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),20), align="center")
             draw.multiline_text((45, 35), "Version : 1.1.RB -  By Jonathan Foot", font=ImageFont.truetype("%s/Skinny.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
-        time.sleep(25)
+        time.sleep(30) #Wait such a long time to allow the device to startup and connect to a WIFI source first.
 
 
 try:
@@ -620,9 +618,9 @@ try:
 
         if (Args.EnergySaverMode != "none" and is_time_between()):
             if (datetime.now().date() - StartUpDate).days >= Args.UpdateDays:
-                print "Restarting Pi To Check For Updates On Start Up."
-		os.system("sudo git -C %s pull; sudo reboot" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))))
-		sys.exit()
+                print "Checking for updates and then restarting Pi."
+                os.system("sudo git -C %s pull; sudo reboot" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))))
+                sys.exit()
             if Args.EnergySaverMode == "dim":
                 if energyMode == "normal":
                     device.contrast(15)
