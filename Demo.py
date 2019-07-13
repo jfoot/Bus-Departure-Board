@@ -595,7 +595,7 @@ def Splash():
     if Args.SplashScreen:
         with canvas(device) as draw:
             draw.multiline_text((64, 10), "Departure Board", font= ImageFont.truetype("%s/Bold.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),20), align="center")
-            draw.multiline_text((45, 35), "Version : 1.1.EX -  By Jonathan Foot", font=ImageFont.truetype("%s/Skinny.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
+            draw.multiline_text((45, 35), "Version : 1.2.EX -  By Jonathan Foot", font=ImageFont.truetype("%s/Skinny.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
         time.sleep(2) 
 
 
@@ -607,7 +607,7 @@ try:
     while True:
         time.sleep(0.02)
 
-        if board.State == "dead":
+		if 'board' in globals() and board.State == "dead":
             del board
             board = boardFixed(image_composition,Args.Delay,device)
             device.clear()
