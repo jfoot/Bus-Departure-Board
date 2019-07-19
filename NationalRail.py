@@ -75,25 +75,25 @@ FontSize = 11
 if Args.Design == 'full':
     if Args.ShowIndex:
         if Args.HidePlatform:
-            FontSize=11
-        else:
-            FontSize=10
-    else:
-        FontSize=11
-elif Args.Design == 'compact':
-    if Args.ShowIndex:
-        if Args.HidePlatform:
             FontSize=12
         else:
             FontSize=11
     else:
+        FontSize=12
+elif Args.Design == 'compact':
+    if Args.ShowIndex:
         if Args.HidePlatform:
             FontSize=13
         else:
             FontSize=12
+    else:
+        if Args.HidePlatform:
+            FontSize=14
+        else:
+            FontSize=13
 
 
-BasicFont = ImageFont.truetype("%s/lower.ttf" %(os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) ), FontSize)
+BasicFont = ImageFont.truetype("%s/lower.ttf" %(os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) ), FontSize-1)
 StationName = ""
 #GenericVia = "Via Central Reading"
 
@@ -126,11 +126,11 @@ class LiveTime(object):
 
     def __init__(self, Data, Index, serviceC):
         self.Index = str(inflect.engine().ordinal(Index))
-        self.Destination = str(serviceC.destination_text)
+        self.Destination = str(serviceC.destination_text).split("via")[0]
         self.SchArrival = str(Data.sta)
         self.ExptArrival = self.GetExptTime(Data.eta)
         self.CallingAt = str([cp.location_name for cp in Data.subsequent_calling_points])
-        self.Platform = str(serviceC.platform)
+        self.Platform = str(serviceC.platform) if serviceC.platform != None else ""
         self.ID =  str(serviceC.service_id)
         self.Operator = str(Data.operator_name)
 
@@ -186,7 +186,7 @@ class LiveTime(object):
             board = darwin_sesh.get_station_board(Args.StationID)
             global StationName
             StationName = board.location_name
-            print StationName
+
             for serviceC in board.train_services:
                 if len(services) >= Args.NumberOfCards:
                     break
