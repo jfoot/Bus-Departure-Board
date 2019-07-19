@@ -57,7 +57,7 @@ parser.add_argument("-m","--Design", default='full', help="Alters the design of 
 parser.add_argument('--HidePlatform', dest='HidePlatform', action='store_true',help="Do you wish to hide the platform number for each service due to arrive.")
 parser.add_argument('--ShowIndex', dest='ShowIndex', action='store_true',help="Do you wish to see index position for each service due to arrive.")
 parser.add_argument("--ReducedAnimations", help="If you wish to stop the Via animation and cycle faster through the services use this tag to turn the animation off.", dest='ReducedAnimations', action='store_true')
-parser.add_argument("--UnfixNextToArrive",dest='FixToArrive', action='store_false', help="Keep the bus sonnest to next arrive at the very top of the display until it has left; by default true")
+parser.add_argument("--FixNextToArrive",dest='FixToArrive', action='store_true', default=False, help="Keep the train next arrive at the very top of the display until it has left; by default false")
 parser.add_argument("--HideUnknownVias", help="If the API does not report any known via route a placeholder of 'Via Central Reading' is used. If you wish to stop the animation for unknowns use this tag.", dest='HideUnknownVias', action='store_true')
 parser.add_argument('--no-splashscreen', dest='SplashScreen', action='store_false',help="Do you wish to see the splash screen at start up; recommended and on by default.")
 parser.add_argument("--Display", default="ssd1322", choices=['ssd1322','pygame','capture','gifanim'], help="Used for devlopment purposes, allows you to switch from a phyiscal display to a virtual emulated one; defualt 'ssd1322'")
@@ -231,20 +231,20 @@ class TextImageComplex():
 #Used for the opening animation, creates a static two lines of the new and previous service.
 class StaticTextImage():
     def __init__(self, device, service, previous_service):			
-        self.image = Image.new(device.mode, (device.width, 32))
+        self.image = Image.new(device.mode, (device.width, FontSize*2))
         draw = ImageDraw.Draw(self.image)
         
         displayTimeTempPrevious = TextImage(device, previous_service.ExptArrival)
         displayTimeTemp = TextImage(device, service.ExptArrival)
 
         draw.text((0, FontSize), service.DisplayScreen, font=BasicFont, fill="white")
-        draw.text((device.width - displayTimeTemp.width, 12), service.ExptArrival, font=BasicFont, fill="white")
+        draw.text((device.width - displayTimeTemp.width, FontSize), service.ExptArrival, font=BasicFont, fill="white")
     
         draw.text((0, 0), previous_service.DisplayScreen, font=BasicFont, fill="white")
         draw.text((device.width - displayTimeTempPrevious.width, 0), previous_service.ExptArrival, font=BasicFont, fill="white")
     
         self.width = device.width 
-        self.height = 32
+        self.height = FontSize * 2
         del draw
 
 #Used to draw a black cover over hidden stuff.
@@ -320,12 +320,12 @@ class ScrollTime():
         self.Controller = controller
         
         self.image_composition = image_composition
-        self.rectangle = ComposableImage(RectangleCover(device).image, position=(0,FontSize * position + FontSize))
+        self.rectangle = ComposableImage(RectangleCover(device).image, position=(0,(FontSize * position) + FontSize*2))
         self.CurrentService = service
         
         self.generateCard(service)
         
-        self.IStaticOld =  ComposableImage(StaticTextImage(device,service, previous_service).image, position=(0, (FontSize * position)))
+        self.IStaticOld =  ComposableImage(StaticTextImage(device,service, previous_service).image, position=(0, FontSize + (FontSize * position)))
         
         self.image_composition.add_image(self.IStaticOld)
         self.image_composition.add_image(self.rectangle)
@@ -347,9 +347,9 @@ class ScrollTime():
         displayTimeTemp = TextImage(device, service.ExptArrival)
         IDestinationTemp  = TextImageComplex(device, service.CallingAt,service.CallingAt, displayTimeTemp.width)
 
-        self.IDestination =  ComposableImage(IDestinationTemp.image.crop((0,0,IDestinationTemp.width + 10,FontSize)), position=(45 if Args.ShowIndex else 30, FontSize * self.position))
-        self.IServiceNumber =  ComposableImage(TextImage(device, service.DisplayScreen).image.crop((0,0,240,FontSize)), position=(0, FontSize * self.position))
-        self.IDisplayTime =  ComposableImage(displayTimeTemp.image, position=(device.width - displayTimeTemp.width, FontSize * self.position))
+        self.IDestination =  ComposableImage(IDestinationTemp.image.crop((0,0,IDestinationTemp.width + 10,FontSize)), position=(45 if Args.ShowIndex else 30, FontSize + (FontSize * self.position)))
+        self.IServiceNumber =  ComposableImage(TextImage(device, service.DisplayScreen).image.crop((0,0,240,FontSize)), position=(0, FontSize + (FontSize * self.position)))
+        self.IDisplayTime =  ComposableImage(displayTimeTemp.image, position=(device.width - displayTimeTemp.width, FontSize + (FontSize * self.position)))
 
     def updateCard(self, newService, device):
         self.state = self.SCROLL_DECIDER
@@ -357,7 +357,7 @@ class ScrollTime():
         self.image_composition.remove_image(self.IDisplayTime)
 
         displayTimeTemp = TextImage(device, newService.ExptArrival)
-        self.IDisplayTime = ComposableImage(displayTimeTemp.image, position=(device.width - displayTimeTemp.width, FontSize * self.position))
+        self.IDisplayTime = ComposableImage(displayTimeTemp.image, position=(device.width - displayTimeTemp.width, FontSize + (FontSize * self.position)))
     
         self.image_composition.add_image(self.IDisplayTime)
         self.image_composition.refresh()
@@ -370,7 +370,7 @@ class ScrollTime():
             return 
             
         self.synchroniser.busy(self)
-        self.IStaticOld =  ComposableImage(StaticTextImage(device,newService, self.CurrentService).image, position=(0, (FontSize * self.position)))
+        self.IStaticOld =  ComposableImage(StaticTextImage(device,newService, self.CurrentService).image, position=(0, FontSize + (FontSize * self.position)))
     
         self.image_composition.add_image(self.IStaticOld)
         self.image_composition.add_image(self.rectangle)
@@ -411,7 +411,7 @@ class ScrollTime():
             self.image_composition.remove_image(self.IDisplayTime)
             self.CurrentService.DisplayTime = self.CurrentService.GetDisplayTime()
             displayTimeTemp = TextImage(device, self.CurrentService.DisplayTime)
-            self.IDisplayTime = ComposableImage(displayTimeTemp.image, position=(device.width - displayTimeTemp.width, FontSize * self.position))           
+            self.IDisplayTime = ComposableImage(displayTimeTemp.image, position=(device.width - displayTimeTemp.width, FontSize + (FontSize * self.position)))           
             self.image_composition.add_image(self.IDisplayTime)
             self.image_composition.refresh()
 
@@ -548,9 +548,9 @@ class boardFixed():
 
     #Set up the cards for the inital starting animation.
     def setInitalCards(self):
-        self.top = ScrollTime(image_composition, len(self.Services) >= 1 and self.Services[0] or LiveTimeStud(),LiveTimeStud(), self.scroll_delay, self.synchroniser, device, 1, self)
-        self.middel = ScrollTime(image_composition, len(self.Services) >= 2 and self.Services[1] or LiveTimeStud(),LiveTimeStud(), self.scroll_delay, self.synchroniser, device, 2,self)
-        self.bottom = ScrollTime(image_composition, len(self.Services) >= 3 and self.Services[2] or LiveTimeStud(),LiveTimeStud(), self.scroll_delay, self.synchroniser, device, 3, self)
+        self.top = ScrollTime(image_composition, len(self.Services) >= 1 and self.Services[0] or LiveTimeStud(),LiveTimeStud(), self.scroll_delay, self.synchroniser, device, 0, self)
+        self.middel = ScrollTime(image_composition, len(self.Services) >= 2 and self.Services[1] or LiveTimeStud(),LiveTimeStud(), self.scroll_delay, self.synchroniser, device, 1,self)
+        self.bottom = ScrollTime(image_composition, len(self.Services) >= 3 and self.Services[2] or LiveTimeStud(),LiveTimeStud(), self.scroll_delay, self.synchroniser, device, 2, self)
         self.x = len(self.Services) < 3 and len(self.Services) or 3
 
     def tick(self):
@@ -652,7 +652,7 @@ device = cmdline.create_device( DisplayParser.parse_args(['--display', str(Args.
 
 image_composition = ImageComposition(device)
 board = boardFixed(image_composition,Args.Delay,device)
-FontTime = ImageFont.truetype("%s/time.otf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),16)
+FontTime = ImageFont.truetype("%s/time.otf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),14)
 device.contrast(255)
 energyMode = "normal"
 StartUpDate = datetime.now().date()
@@ -663,7 +663,7 @@ def display():
     with canvas(device, background=image_composition()) as draw:
         image_composition.refresh()
         draw.multiline_text((0, 0), board.GetHeader(), font=BasicFont)
-        draw.multiline_text(((device.width - draw.textsize(msgTime, FontTime)[0])/2, device.height-16), msgTime, font=FontTime, align="center")
+        draw.multiline_text(((device.width - draw.textsize(msgTime, FontTime)[0])/2, device.height-14), msgTime, font=FontTime, align="center")
 
 def Splash():
     if Args.SplashScreen:
