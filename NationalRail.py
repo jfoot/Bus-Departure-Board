@@ -158,14 +158,15 @@ class LiveTime(object):
             return Expected if Expected != None else self.SchArrival
         else:
             ExpTime = Expected if (Expected != None and Expected != 'On time') else self.SchArrival
-            if ExpTime == 'Delayed':
+            try:
+                Diff =  (datetime.strptime(ExpTime, '%H:%M').replace(year=datetime.now().year,month=datetime.now().month,day=datetime.now().day) - datetime.now()).total_seconds() / 60
+                if Diff <= 0.75:
+                    return ' Arriving'
+                if Diff >=15 :
+                    return ' ' + datetime.strptime(ExpTime, '%H:%M').strftime("%H:%M" if (Args.TimeFormat==24) else  "%I:%M")
+                return  ' %d min' % Diff
+            except Exception as e:
                 return ExpTime
-            Diff =  (datetime.strptime(ExpTime, '%H:%M').replace(year=datetime.now().year,month=datetime.now().month,day=datetime.now().day) - datetime.now()).total_seconds() / 60
-            if Diff <= 0.75:
-                return ' Arriving'
-            if Diff >=15 :
-                return ' ' + datetime.strptime(ExpTime, '%H:%M').strftime("%H:%M" if (Args.TimeFormat==24) else  "%I:%M")
-            return  ' %d min' % Diff
 
     @staticmethod
     def TimePassed():
