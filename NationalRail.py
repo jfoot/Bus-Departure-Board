@@ -50,6 +50,11 @@ parser.add_argument("-e","--EnergySaverMode", help="To save screen from burn in 
 parser.add_argument("-i","--InactiveHours", help="The peroid of time for which the display will go into 'Energy Saving Mode' if turned on; default is '23:00-07:00'", type=check_time,default="23:00-07:00")
 parser.add_argument("-u","--UpdateDays", help="The number of days for which the Pi will wait before rebooting and checking for a new update again during your energy saving period; defualt 3 days.", type=check_positive, default=3)
 parser.add_argument("-x","--ExcludedPlatforms", default="", help="List any platforms you do not wish to view. Make sure to capitalise correctly and simply put a single space between each; defualt is nothing, ie show every platform.",  nargs='*')
+
+parser.add_argument("-q","--Header", default="desc", choices=['desc','loc','date','none'],help="Defines the design for the top row/ header of the display. desc- List the purpose of each collumn. loc- Names the location of the station above. date- List the date at the top. none-Keeps the header blank. Defualt is desc.")
+parser.add_argument("-m","--Design", default='full', help="Alters the design of the display, full- shows both scheduled and expected arrival time. compact- shows only the expected time (like a bus display); defualt is 'full'",  choices=['full','compact'])
+
+parser.add_argument('--HidePlatform', dest='HidePlatform', action='store_true',help="Do you wish to hide the platform number for each service due to arrive.")
 parser.add_argument('--ShowIndex', dest='ShowIndex', action='store_true',help="Do you wish to see index position for each service due to arrive.")
 parser.add_argument("--ReducedAnimations", help="If you wish to stop the Via animation and cycle faster through the services use this tag to turn the animation off.", dest='ReducedAnimations', action='store_true')
 parser.add_argument("--UnfixNextToArrive",dest='FixToArrive', action='store_false', help="Keep the bus sonnest to next arrive at the very top of the display until it has left; by default true")
@@ -65,10 +70,32 @@ requiredNamed = parser.add_argument_group('required named arguments')
 requiredNamed.add_argument("-k","--APIToken", help="Your OpenLDBWS National Rail Token, you can get your own from: http://realtime.nationalrail.co.uk/OpenLDBWSRegistration/", type=str,required=True)
 requiredNamed.add_argument("-s","--StationID", help="The Station Code for the specific station you wish to display. View all codes here: https://www.nationalrail.co.uk/stations_destinations/48541.aspx", type=str,required=True)
 Args = parser.parse_args()
-FontSize = 11
 
-BasicFont = ImageFont.truetype("%s/lower.ttf" %(os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) ),10)
-GenericVia = "Via Central Reading"
+FontSize = 11
+if Args.Design == 'full':
+    if Args.ShowIndex:
+        if Args.HidePlatform:
+            FontSize=11
+        else:
+            FontSize=10
+    else:
+        FontSize=11
+elif Args.Design == 'compact':
+    if Args.ShowIndex:
+        if Args.HidePlatform:
+            FontSize=12
+        else:
+            FontSize=11
+    else:
+        if Args.HidePlatform:
+            FontSize=13
+        else:
+            FontSize=12
+
+
+BasicFont = ImageFont.truetype("%s/lower.ttf" %(os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) ), FontSize)
+StationName = ""
+#GenericVia = "Via Central Reading"
 
 ###
 # Below contains the class which gets API data from the Reading Buses API. You should pass the API key in as a paramater on startup.
@@ -101,7 +128,7 @@ class LiveTime(object):
         self.Index = str(inflect.engine().ordinal(Index))
         self.Destination = str(serviceC.destination_text)
         self.SchArrival = str(Data.sta)
-        self.ExptArrival = str(Data.eta) if Data.eta != None else str(Data.sta)
+        self.ExptArrival = self.GetExptTime(Data.eta)
         self.CallingAt = str([cp.location_name for cp in Data.subsequent_calling_points])
         self.Platform = str(serviceC.platform)
         self.ID =  str(serviceC.service_id)
@@ -109,20 +136,36 @@ class LiveTime(object):
 
         self.IsCancelled = str(Data.is_cancelled)
         self.DisruptionReason = str(Data.disruption_reason)
-
         self.DisplayScreen = self.GetDisplayMessage()
     
         self.LastStaticUpdate = datetime.now()
 
     #Returns the value to display the time on the board.
     def GetDisplayMessage(self):
-        msg = self.Index + ' '
-        msg += self.SchArrival + ' '
-        msg += self.Platform
-        msg += ' '  * (4 - len(self.Platform))
+        msg = ''
+        if Args.ShowIndex:
+            msg += self.Index + ' '
+        if Args.Design == 'full':
+            msg += self.SchArrival + ' '
+        if not Args.HidePlatform:
+            msg += self.Platform
+            msg += ' '  * (4 - len(self.Platform))
         msg += self.Destination
         return msg[:35]
 
+    def GetExptTime(self, Expected):
+        if Args.Design == 'full':
+            return Expected if Expected != None else self.SchArrival
+        else:
+            ExpTime = Expected if (Expected != None and Expected != 'On time') else self.SchArrival
+            if ExpTime == 'Delayed':
+                return ExpTime
+            Diff =  (datetime.strptime(ExpTime, '%H:%M').replace(year=datetime.now().year,month=datetime.now().month,day=datetime.now().day) - datetime.now()).total_seconds() / 60
+            if Diff <= 0.75:
+                return ' Arriving'
+            if Diff >=15 :
+                return ' ' + datetime.strptime(ExpTime, '%H:%M').strftime("%H:%M" if (Args.TimeFormat==24) else  "%I:%M")
+            return  ' %d min' % Diff
 
     @staticmethod
     def TimePassed():
@@ -141,16 +184,16 @@ class LiveTime(object):
         try:
             darwin_sesh = DarwinLdbSession(wsdl="https://lite.realtime.nationalrail.co.uk/OpenLDBWS/wsdl.aspx", api_key=Args.APIToken)
             board = darwin_sesh.get_station_board(Args.StationID)
-
+            global StationName
+            StationName = board.location_name
+            print StationName
             for serviceC in board.train_services:
                 if len(services) >= Args.NumberOfCards:
                     break
                 service = darwin_sesh.get_service_details(serviceC.service_id)
                 if service.sta != None:
                     services.append(LiveTime(service, len(services) + 1, serviceC))
-                
-            for ser in services:
-                print ser.DisplayScreen
+
             return services
         except Exception as e:
             print(str(e))
@@ -401,7 +444,7 @@ class ScrollTime():
                 if not self.is_waiting():
                     if self.synchroniser.is_synchronised():
                         self.synchroniser.busy(self)
-                        if (Args.HideUnknownVias and self.CurrentService.Via == GenericVia) or Args.ReducedAnimations:
+                        if Args.ReducedAnimations:
                             self.state = self.WAIT_SYNC
                         elif self.CurrentService.ID == "0":
                             self.synchroniser.ready(self)
@@ -561,14 +604,30 @@ class boardFixed():
         if  not (Args.FixToArrive and row == 1):
             self.x = self.x + 1
 
-
-
     def is_waiting(self):
         self.ticks += 1
         if self.ticks > Args.RecoveryTime:
             self.ticks = 0
             return False
         return True
+
+    def GetHeader(self):
+        msg = ''
+
+        if Args.Header == 'desc':
+            if Args.ShowIndex:
+                msg += 'Idx '
+            if Args.Design == 'full':
+                msg += 'Time  '
+            if not Args.HidePlatform:
+                msg += 'Plt '
+            msg += 'Destination'
+        elif Args.Header == 'loc':
+            msg += StationName
+        elif Args.Header == 'date':
+            msg += datetime.today().strftime('%Y-%m-%d')
+
+        return msg
     
         
 
@@ -602,6 +661,7 @@ def display():
     msgTime = str(datetime.now().strftime("%H:%M:%S" if (Args.TimeFormat==24) else "%I:%M:%S"))	
     with canvas(device, background=image_composition()) as draw:
         image_composition.refresh()
+        draw.multiline_text((0, 0), board.GetHeader(), font=BasicFont)
         draw.multiline_text(((device.width - draw.textsize(msgTime, FontTime)[0])/2, device.height-16), msgTime, font=FontTime, align="center")
 
 def Splash():
