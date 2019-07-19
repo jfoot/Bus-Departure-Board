@@ -87,10 +87,7 @@ elif Args.Design == 'compact':
         else:
             FontSize=12
     else:
-        if Args.HidePlatform:
-            FontSize=14
-        else:
-            FontSize=13
+        FontSize=13
 
 
 BasicFont = ImageFont.truetype("%s/lower.ttf" %(os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) ), FontSize-1)
