@@ -58,6 +58,7 @@ parser.add_argument("-x","--ExcludedPlatforms", default="", help="List any platf
 parser.add_argument("-q","--Header", default="desc", choices=['desc','loc','date','none'],help="Defines the design for the top row/ header of the display. desc- List the purpose of each collumn. loc- Names the location of the station above. date- List the date at the top. none-Keeps the header blank. default is desc.")
 parser.add_argument("-m","--Design", default='full', help="Alters the design of the display, full- shows both scheduled and expected arrival time. compact- shows only the expected time (like a bus display); default is 'full'",  choices=['full','compact'])
 
+parser.add_argument('--ShowCallingAtForDirect', dest='ShowDirect', action='store_true',default=False,help="For trains that are a direct route, ie they will only be calling at their terminating destination by default have their calling at animation skipped. Using this tag will show the animation again.")
 parser.add_argument('--HidePlatform', dest='HidePlatform', action='store_true',help="Do you wish to hide the platform number for each service due to arrive.")
 parser.add_argument('--ShowIndex', dest='ShowIndex', action='store_true',help="Do you wish to see index position for each service due to arrive.")
 parser.add_argument("--ReducedAnimations", help="If you wish to stop the Via animation and cycle faster through the services use this tag to turn the animation off.", dest='ReducedAnimations', action='store_true')
@@ -314,7 +315,7 @@ class ScrollTime():
         self.image_composition = image_composition
         self.rectangle = ComposableImage(RectangleCover(device).image, position=(0,(FontSize * position) + FontSize*2))
         self.CurrentService = service
-        
+        self.DirectService = False
         self.generateCard(service)
         
         self.IStaticOld =  ComposableImage(StaticTextImage(device,service, previous_service).image, position=(0, FontSize + (FontSize * position)))
@@ -327,7 +328,6 @@ class ScrollTime():
         self.image_x_pos = 0
         self.device = device
         self.partner = None
-            
         self.delay = scroll_delay
         self.ticks = 0
         self.state = self.OPENING_SCROLL if service.ID != 0 else self.STUD
@@ -342,6 +342,7 @@ class ScrollTime():
         
         TempSCallingAt = TextImage(device, "Calling at:")
         TempICallingAt = TextImage(device, service.CallingAt)
+        self.DirectService = ',' not in service.CallingAt
         self.ICallingAt = ComposableImage(TempICallingAt.image.crop((0,0,TempICallingAt.width + 3,FontSize)), position=(TempSCallingAt.width + 3, FontSize + (FontSize * self.position)))
         self.SCallingAt = ComposableImage(TempSCallingAt.image.crop((0,0,TempSCallingAt.width,FontSize)), position=(0, FontSize + (FontSize * self.position)))
 
@@ -442,7 +443,7 @@ class ScrollTime():
                 if not self.is_waiting():
                     if self.synchroniser.is_synchronised():
                         self.synchroniser.busy(self)
-                        if Args.ReducedAnimations:
+                        if Args.ReducedAnimations or (self.DirectService and not Args.ShowDirect):
                             self.state = self.WAIT_SYNC
                         elif self.CurrentService.ID == "0":
                             self.synchroniser.ready(self)
