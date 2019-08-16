@@ -1,3 +1,7 @@
+# This software was produced by Jonathan Foot (c) 2019, all rights reserved.
+# Project Website : https://departureboard.jonathanfoot.com
+# Documentation   : https://jonathanfoot.com/Projects/DepartureBoard
+
 import urllib2
 import time
 import math
