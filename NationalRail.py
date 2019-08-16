@@ -8,6 +8,7 @@ import math
 import inspect,os
 import sys
 import inflect
+import re
 import argparse
 from PIL import ImageFont, Image, ImageDraw
 from luma.core.render import canvas
@@ -129,8 +130,8 @@ class LiveTime(object):
     def __init__(self, Data, Index, serviceC):
         self.Index = str(inflect.engine().ordinal(Index))
         self.Destination = str(serviceC.destination_text).split("via")[0]
-        self.SchArrival = str(Data.sta)
-        self.ExptArrival = self.GetExptTime(Data.eta)
+        self.SchArrival =  datetime.strptime(str(datetime.now().date()) + " "  + Data.sta, '%Y-%m-%d %H:%M').time().strftime("%H:%M" if (Args.TimeFormat==24) else  "%I:%M")
+        self.ExptArrival = self.GetExptTime(Data.eta, datetime.strptime(str(datetime.now().date()) + " "  + Data.sta, '%Y-%m-%d %H:%M'))
         self.CallingAt = str([cp.location_name for cp in Data.subsequent_calling_points]).replace(']','').replace('[','')
         self.Platform = str(serviceC.platform) if serviceC.platform != None else ""
         self.ID =  str(serviceC.service_id)
@@ -155,17 +156,31 @@ class LiveTime(object):
         msg += self.Destination
         return msg[:35]
 
-    def GetExptTime(self, Expected):
-        if Args.Design == 'full':
-            return Expected if Expected != None else self.SchArrival
+    def GetExptTime(self, Expected, Sched):
+        ExpTime = ""
+        if Expected != None:
+            if re.search('[a-zA-Z]', Expected):
+                if Expected != 'On Time':
+                    return Expected
+                else:
+                    ExpTime = Expected
+                    Expected = Sched.strftime("%H:%M")
+            else:
+                ExpTime = datetime.strptime(str(datetime.now().date()) + " "  + Expected, '%Y-%m-%d %H:%M').time().strftime("%H:%M" if (Args.TimeFormat==24) else  "%I:%M")
         else:
-            ExpTime = Expected if (Expected != None and Expected != 'On time') else self.SchArrival
+            Expected = Sched.strftime("%H:%M")
+            ExpTime= self.SchArrival
+
+
+        if Args.Design == 'full':
+            return ExpTime                       
+        else:          
             try:
-                Diff =  (datetime.strptime(ExpTime, '%H:%M').replace(year=datetime.now().year,month=datetime.now().month,day=datetime.now().day) - datetime.now()).total_seconds() / 60
+                Diff =  (datetime.strptime(Expected, "%H:%M").replace(year=datetime.now().year,month=datetime.now().month,day=datetime.now().day) - datetime.now()).total_seconds() / 60
                 if Diff <= 0.75:
                     return ' Arriving'
                 if Diff >=15 :
-                    return ' ' + datetime.strptime(ExpTime, '%H:%M').strftime("%H:%M" if (Args.TimeFormat==24) else  "%I:%M")
+                    return Expected
                 return  ' %d min' % Diff
             except Exception as e:
                 print(str(e))
