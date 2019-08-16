@@ -1,3 +1,7 @@
+# This software was produced by Jonathan Foot (c) 2019, all rights reserved.
+# Project Website : https://departureboard.jonathanfoot.com
+# Documentation   : https://jonathanfoot.com/Projects/DepartureBoard
+
 import urllib2
 import time
 import math
@@ -45,14 +49,14 @@ parser.add_argument("-r","--RecoveryTime", help="How long the display will wait 
 parser.add_argument("-n","--NumberOfCards", help="The maximum number of cards you will see before forcing a new data retrieval, a limit is recommend to prevent cycling through data which may become out of data or going too far into scheduled buses; default is 9, must be greater than 0.", type=check_positive,default=9)
 parser.add_argument("-y","--Rotation", help="Defines which way up the screen is rendered; default is 0", type=int,default=0,choices=[0,2])
 parser.add_argument("-l","--RequestLimit", help="Defines the minium amount of time the display must wait before making a new data request; default is 55(seconds)", type=check_positive,default=55)
-parser.add_argument("-z","--StaticUpdateLimit", help="Defines the amount of time the display will wait before updating the expected arrival time (based upon it's last known predicted arrival time); defualt is  15(seconds), this should be lower than your 'RequestLimit'", type=check_positive,default=15)
+parser.add_argument("-z","--StaticUpdateLimit", help="Defines the amount of time the display will wait before updating the expected arrival time (based upon it's last known predicted arrival time); default is  15(seconds), this should be lower than your 'RequestLimit'", type=check_positive,default=15)
 parser.add_argument("-e","--EnergySaverMode", help="To save screen from burn in and prolong it's life it is recommend to have energy saving mode enabled. 'off' is default, between the hours set the screen will turn off. 'dim' will turn the screen brightness down, but not completely off. 'none' will do nothing and leave the screen on; this is not recommend, you can change your active hours instead.", type=str,choices=["none","dim","off"],default="off")
-parser.add_argument("-i","--InactiveHours", help="The peroid of time for which the display will go into 'Energy Saving Mode' if turned on; default is '23:00-07:00'", type=check_time,default="23:00-07:00")
-parser.add_argument("-u","--UpdateDays", help="The number of days for which the Pi will wait before rebooting and checking for a new update again during your energy saving period; defualt 3 days.", type=check_positive, default=3)
-parser.add_argument("-x","--ExcludedPlatforms", default="", help="List any platforms you do not wish to view. Make sure to capitalise correctly and simply put a single space between each; defualt is nothing, ie show every platform.",  nargs='*')
+parser.add_argument("-i","--InactiveHours", help="The period of time for which the display will go into 'Energy Saving Mode' if turned on; default is '23:00-07:00'", type=check_time,default="23:00-07:00")
+parser.add_argument("-u","--UpdateDays", help="The number of days for which the Pi will wait before rebooting and checking for a new update again during your energy saving period; default 3 days.", type=check_positive, default=3)
+parser.add_argument("-x","--ExcludedPlatforms", default="", help="List any platforms you do not wish to view. Make sure to capitalise correctly and simply put a single space between each; default is nothing, ie show every platform.",  nargs='*')
 
-parser.add_argument("-q","--Header", default="desc", choices=['desc','loc','date','none'],help="Defines the design for the top row/ header of the display. desc- List the purpose of each collumn. loc- Names the location of the station above. date- List the date at the top. none-Keeps the header blank. Defualt is desc.")
-parser.add_argument("-m","--Design", default='full', help="Alters the design of the display, full- shows both scheduled and expected arrival time. compact- shows only the expected time (like a bus display); defualt is 'full'",  choices=['full','compact'])
+parser.add_argument("-q","--Header", default="desc", choices=['desc','loc','date','none'],help="Defines the design for the top row/ header of the display. desc- List the purpose of each collumn. loc- Names the location of the station above. date- List the date at the top. none-Keeps the header blank. default is desc.")
+parser.add_argument("-m","--Design", default='full', help="Alters the design of the display, full- shows both scheduled and expected arrival time. compact- shows only the expected time (like a bus display); default is 'full'",  choices=['full','compact'])
 
 parser.add_argument('--HidePlatform', dest='HidePlatform', action='store_true',help="Do you wish to hide the platform number for each service due to arrive.")
 parser.add_argument('--ShowIndex', dest='ShowIndex', action='store_true',help="Do you wish to see index position for each service due to arrive.")
@@ -60,7 +64,7 @@ parser.add_argument("--ReducedAnimations", help="If you wish to stop the Via ani
 parser.add_argument("--FixNextToArrive",dest='FixToArrive', action='store_true', default=False, help="Keep the train next arrive at the very top of the display until it has left; by default false")
 parser.add_argument("--HideUnknownVias", help="If the API does not report any known via route a placeholder of 'Via Central Reading' is used. If you wish to stop the animation for unknowns use this tag.", dest='HideUnknownVias', action='store_true')
 parser.add_argument('--no-splashscreen', dest='SplashScreen', action='store_false',help="Do you wish to see the splash screen at start up; recommended and on by default.")
-parser.add_argument("--Display", default="ssd1322", choices=['ssd1322','pygame','capture','gifanim'], help="Used for devlopment purposes, allows you to switch from a phyiscal display to a virtual emulated one; defualt 'ssd1322'")
+parser.add_argument("--Display", default="ssd1322", choices=['ssd1322','pygame','capture','gifanim'], help="Used for devlopment purposes, allows you to switch from a phyiscal display to a virtual emulated one; default 'ssd1322'")
 parser.add_argument("--max-frames", default=60,dest='maxframes', type=check_positive, help="Used only when using gifanim emulator, sets how long the gif should be.")
 
 
@@ -110,7 +114,7 @@ class LiveTimeStud():
         self.Operator = " "
         self.IsCancelled = " "
         self.DisruptionReason = " "
-        self.DisplayScreen = " "
+        self.DisplayText = " "
         self.ID =  "0"
     
     def TimePassedStatic(self):
@@ -126,14 +130,14 @@ class LiveTime(object):
         self.Destination = str(serviceC.destination_text).split("via")[0]
         self.SchArrival = str(Data.sta)
         self.ExptArrival = self.GetExptTime(Data.eta)
-        self.CallingAt = str([cp.location_name for cp in Data.subsequent_calling_points])
+        self.CallingAt = str([cp.location_name for cp in Data.subsequent_calling_points]).replace(']','').replace('[','')
         self.Platform = str(serviceC.platform) if serviceC.platform != None else ""
         self.ID =  str(serviceC.service_id)
         self.Operator = str(Data.operator_name)
 
         self.IsCancelled = str(Data.is_cancelled)
         self.DisruptionReason = str(Data.disruption_reason)
-        self.DisplayScreen = self.GetDisplayMessage()
+        self.DisplayText = self.GetDisplayMessage()
     
         self.LastStaticUpdate = datetime.now()
 
@@ -163,6 +167,7 @@ class LiveTime(object):
                     return ' ' + datetime.strptime(ExpTime, '%H:%M').strftime("%H:%M" if (Args.TimeFormat==24) else  "%I:%M")
                 return  ' %d min' % Diff
             except Exception as e:
+                print(str(e))
                 return ExpTime
 
     @staticmethod
@@ -189,7 +194,7 @@ class LiveTime(object):
                 if len(services) >= Args.NumberOfCards:
                     break
                 service = darwin_sesh.get_service_details(serviceC.service_id)
-                if service.sta != None:
+                if service.sta != None and str(service.platform) not in Args.ExcludedPlatforms:
                     services.append(LiveTime(service, len(services) + 1, serviceC))
 
             return services
@@ -205,7 +210,7 @@ class LiveTime(object):
 #Used to create the time and service number on the board
 class TextImage():
     def __init__(self, device, text):
-        self.image = Image.new(device.mode, (device.width, FontSize))
+        self.image = Image.new(device.mode, (device.width*5, FontSize))
         draw = ImageDraw.Draw(self.image)
         draw.text((0, 0), text, font=BasicFont, fill="white")
     
@@ -213,17 +218,6 @@ class TextImage():
         self.height = 5 + draw.textsize(text, BasicFont)[1]
         del draw
 
-#Used to create the destination and via board.
-class TextImageComplex():
-    def __init__(self, device, destination, via, startOffset):
-        self.image = Image.new(device.mode, (device.width*2, FontSize))
-        draw = ImageDraw.Draw(self.image)
-        #draw.text((0, 0), destination, font=BasicFont, fill="white")
-        #draw.text((device.width - startOffset, 0), via, font=BasicFont, fill="white")
-            
-        self.width = device.width + draw.textsize(via, BasicFont)[0]  - startOffset
-        self.height = FontSize
-        del draw
 
 #Used for the opening animation, creates a static two lines of the new and previous service.
 class StaticTextImage():
@@ -234,10 +228,10 @@ class StaticTextImage():
         displayTimeTempPrevious = TextImage(device, previous_service.ExptArrival)
         displayTimeTemp = TextImage(device, service.ExptArrival)
 
-        draw.text((0, FontSize), service.DisplayScreen, font=BasicFont, fill="white")
+        draw.text((0, FontSize), service.DisplayText, font=BasicFont, fill="white")
         draw.text((device.width - displayTimeTemp.width, FontSize), service.ExptArrival, font=BasicFont, fill="white")
     
-        draw.text((0, 0), previous_service.DisplayScreen, font=BasicFont, fill="white")
+        draw.text((0, 0), previous_service.DisplayText, font=BasicFont, fill="white")
         draw.text((device.width - displayTimeTempPrevious.width, 0), previous_service.ExptArrival, font=BasicFont, fill="white")
     
         self.width = device.width 
@@ -302,12 +296,13 @@ class ScrollTime():
     OPENING_END  = 2
     SCROLL_DECIDER = 3
     SCROLLING_WAIT = 4
-    SCROLLING = 5
-    WAIT_SYNC = 6
+    SCROLLING_PAUSE = 5
+    SCROLLING = 6
+    WAIT_SYNC = 7
 
-    WAIT_STUD = 7
-    STUD_SCROLL = 8
-    STUD_END = 9
+    WAIT_STUD = 8
+    STUD_SCROLL = 9
+    STUD_END = 10
 
     STUD = -1
     
@@ -326,8 +321,8 @@ class ScrollTime():
         
         self.image_composition.add_image(self.IStaticOld)
         self.image_composition.add_image(self.rectangle)
-        
-        self.max_pos = self.IDestination.width
+        self.max_pos = self.ICallingAt.width 
+
         self.image_y_posA = 0
         self.image_x_pos = 0
         self.device = device
@@ -342,11 +337,14 @@ class ScrollTime():
 
     def generateCard(self,service):
         displayTimeTemp = TextImage(device, service.ExptArrival)
-        IDestinationTemp  = TextImageComplex(device, service.CallingAt,service.CallingAt, displayTimeTemp.width)
-
-        self.IDestination =  ComposableImage(IDestinationTemp.image.crop((0,0,IDestinationTemp.width + 10,FontSize)), position=(45 if Args.ShowIndex else 30, FontSize + (FontSize * self.position)))
-        self.IServiceNumber =  ComposableImage(TextImage(device, service.DisplayScreen).image.crop((0,0,240,FontSize)), position=(0, FontSize + (FontSize * self.position)))
+        self.IDisplayText =  ComposableImage(TextImage(device, service.DisplayText).image.crop((0,0,240,FontSize)), position=(0, FontSize + (FontSize * self.position)))
         self.IDisplayTime =  ComposableImage(displayTimeTemp.image, position=(device.width - displayTimeTemp.width, FontSize + (FontSize * self.position)))
+        
+        TempSCallingAt = TextImage(device, "Calling at:")
+        TempICallingAt = TextImage(device, service.CallingAt)
+        self.ICallingAt = ComposableImage(TempICallingAt.image.crop((0,0,TempICallingAt.width + 3,FontSize)), position=(TempSCallingAt.width + 3, FontSize + (FontSize * self.position)))
+        self.SCallingAt = ComposableImage(TempSCallingAt.image.crop((0,0,TempSCallingAt.width,FontSize)), position=(0, FontSize + (FontSize * self.position)))
+
 
     def updateCard(self, newService, device):
         self.state = self.SCROLL_DECIDER
@@ -371,20 +369,19 @@ class ScrollTime():
     
         self.image_composition.add_image(self.IStaticOld)
         self.image_composition.add_image(self.rectangle)
-        self.image_composition.remove_image(self.IDestination)
-        self.image_composition.remove_image(self.IServiceNumber)
+        
+        self.image_composition.remove_image(self.IDisplayText)
         self.image_composition.remove_image(self.IDisplayTime)
         if self.partner != None and self.partner.CurrentService.ID != "0":
             self.partner.refresh()
             
         self.image_composition.refresh()
-        del self.IDestination
-        del self.IServiceNumber
+        del self.IDisplayText
         del self.IDisplayTime
 
         self.generateCard(newService)
         self.CurrentService = newService
-        self.max_pos = self.IDestination.width
+        self.max_pos = self.ICallingAt.width
         
         self.state = self.WAIT_STUD if (newService.ID == "0") else self.WAIT_OPENING
         
@@ -395,9 +392,13 @@ class ScrollTime():
         except:
             pass
         try:
-            self.image_composition.remove_image(self.IDestination)
-            self.image_composition.remove_image(self.IServiceNumber)
+            self.image_composition.remove_image(self.IDisplayText)
             self.image_composition.remove_image(self.IDisplayTime)
+        except:
+            pass  
+        try:
+            self.image_composition.remove_image(self.ICallingAt)
+            self.image_composition.remove_image(self.SCallingAt)
         except:
             pass  
         self.image_composition.refresh() 
@@ -430,8 +431,7 @@ class ScrollTime():
             self.image_composition.remove_image(self.rectangle)
             del self.IStaticOld
 
-            self.image_composition.add_image(self.IDestination)
-            self.image_composition.add_image(self.IServiceNumber)
+            self.image_composition.add_image(self.IDisplayText)
             self.image_composition.add_image(self.IDisplayTime)		
             self.render()
             self.synchroniser.ready(self)
@@ -452,13 +452,25 @@ class ScrollTime():
 
         elif self.state == self.SCROLLING_WAIT:
             if not self.is_waiting():
+                self.image_composition.remove_image(self.IDisplayText)
+                self.image_composition.remove_image(self.IDisplayTime)
+                self.image_composition.add_image(self.ICallingAt)
+                self.image_composition.add_image(self.SCallingAt)
+                self.state = self.SCROLLING_PAUSE
+        elif self.state == self.SCROLLING_PAUSE:
+            if not self.is_waiting():
                 self.state = self.SCROLLING
-
         elif self.state == self.SCROLLING:
             if self.image_x_pos < self.max_pos:
                 self.render()
                 self.image_x_pos += self.speed
             else:
+                self.image_composition.remove_image(self.SCallingAt)
+                self.image_composition.remove_image(self.ICallingAt)
+        
+                self.image_composition.add_image(self.IDisplayText)
+                self.image_composition.add_image(self.IDisplayTime)		
+        
                 self.state = self.WAIT_SYNC
                 
         elif self.state == self.WAIT_SYNC:
@@ -499,16 +511,14 @@ class ScrollTime():
 
     def render(self):
         if(self.state == self.SCROLLING or self.state == self.WAIT_SYNC):
-            self.IDestination.offset = (self.image_x_pos, 0)
+            self.ICallingAt.offset = (self.image_x_pos, 0)
         if(self.state == self.OPENING_SCROLL or self.state == self.STUD_SCROLL):
             self.IStaticOld.offset= (0,self.image_y_posA)
     
     def refresh(self):
-        self.image_composition.remove_image(self.IDestination)
-        self.image_composition.remove_image(self.IServiceNumber)
+        self.image_composition.remove_image(self.IDisplayText)
         self.image_composition.remove_image(self.IDisplayTime)
-        self.image_composition.add_image(self.IDestination)
-        self.image_composition.add_image(self.IServiceNumber)
+        self.image_composition.add_image(self.IDisplayText)
         self.image_composition.add_image(self.IDisplayTime)
 
 
@@ -666,7 +676,7 @@ def Splash():
     if Args.SplashScreen:
         with canvas(device) as draw:
             draw.multiline_text((64, 10), "Departure Board", font= ImageFont.truetype("%s/Bold.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),20), align="center")
-            draw.multiline_text((45, 35), "Version : 0.1.NR -  By Jonathan Foot", font=ImageFont.truetype("%s/Skinny.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
+            draw.multiline_text((45, 35), "Version : 1.0.NR -  By Jonathan Foot", font=ImageFont.truetype("%s/Skinny.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
         time.sleep(30) #Wait such a long time to allow the device to startup and connect to a WIFI source first.
 
 

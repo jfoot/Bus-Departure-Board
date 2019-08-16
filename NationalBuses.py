@@ -1,3 +1,7 @@
+# This software was produced by Jonathan Foot (c) 2019, all rights reserved.
+# Project Website : https://departureboard.jonathanfoot.com
+# Documentation   : https://jonathanfoot.com/Projects/DepartureBoard
+
 import urllib2
 import time
 import math
@@ -43,23 +47,23 @@ parser.add_argument("-d","--Delay", help="How long the display will pause before
 parser.add_argument("-r","--RecoveryTime", help="How long the display will wait before attempting to get new data again after previously failing; default is 100, must be greater than 0.", type=check_positive,default=100)
 parser.add_argument("-n","--NumberOfCards", help="The maximum number of cards you will see before forcing a new data retrieval, a limit is recommend to prevent cycling through data which may become out of data or going too far into scheduled buses; default is 9, must be greater than 0.", type=check_positive,default=9)
 parser.add_argument("-y","--Rotation", help="Defines which way up the screen is rendered; default is 0", type=int,default=0,choices=[0,2])
-parser.add_argument("-l","--RequestLimit", help="Defines the minium amount of time the display must wait before making a new data request; default is 70(seconds)", type=check_positive,default=70)
-parser.add_argument("-z","--StaticUpdateLimit", help="Defines the amount of time the display will wait before updating the expected arrival time (based upon it's last known predicted arrival time); defualt is  15(seconds), this should be lower than your 'RequestLimit'", type=check_positive,default=15)
+parser.add_argument("-l","--RequestLimit", help="Defines the minium amount of time the display must wait before making a new data request; default is 75(seconds)", type=check_positive,default=75)
+parser.add_argument("-z","--StaticUpdateLimit", help="Defines the amount of time the display will wait before updating the expected arrival time (based upon it's last known predicted arrival time); default is  15(seconds), this should be lower than your 'RequestLimit'", type=check_positive,default=15)
 parser.add_argument("-e","--EnergySaverMode", help="To save screen from burn in and prolong it's life it is recommend to have energy saving mode enabled. 'off' is default, between the hours set the screen will turn off. 'dim' will turn the screen brightness down, but not completely off. 'none' will do nothing and leave the screen on; this is not recommend, you can change your active hours instead.", type=str,choices=["none","dim","off"],default="off")
-parser.add_argument("-i","--InactiveHours", help="The peroid of time for which the display will go into 'Energy Saving Mode' if turned on; default is '23:00-07:00'", type=check_time,default="23:00-07:00")
-parser.add_argument("-u","--UpdateDays", help="The number of days for which the Pi will wait before rebooting and checking for a new update again during your energy saving period; defualt 3 days.", type=check_positive, default=3)
-parser.add_argument("-x","--ExcludeServices", default="", help="List any services you do not wish to view. Make sure to capitalise correctly; defualt is nothing, ie show every service.",  nargs='*')
-parser.add_argument("-m","--ViaMessageMode", choices=["full", "shorten", "reduced", "fixed", "operator"], default="fixed", help="The Transport API does not specifically store a bus routes 'Via' message. This message can be created instead using one of the following methods. full-the longest message contains both the county and suburb for each location. shorten- contains only the suburb (defualt). reduced- contains every C suburb visited where C is the ReducedValue 'c'. operator- only contains the name of the operator running the service. fixed- show at max F, where 'F' is the FixedLocations. This will take F locations evenly between all locations. You can also completely turn off this animation using the '--ReducedAnimations' tag.")
+parser.add_argument("-i","--InactiveHours", help="The period of time for which the display will go into 'Energy Saving Mode' if turned on; default is '23:00-07:00'", type=check_time,default="23:00-07:00")
+parser.add_argument("-u","--UpdateDays", help="The number of days for which the Pi will wait before rebooting and checking for a new update again during your energy saving period; default 3 days.", type=check_positive, default=3)
+parser.add_argument("-x","--ExcludeServices", default="", help="List any services you do not wish to view. Make sure to capitalise correctly; default is nothing, ie show every service.",  nargs='*')
+parser.add_argument("-m","--ViaMessageMode", choices=["full", "shorten", "reduced", "fixed", "operator"], default="fixed", help="The Transport API does not specifically store a bus routes 'Via' message. This message can be created instead using one of the following methods. full-the longest message contains both the county and suburb for each location. shorten- contains only the suburb (default). reduced- contains every C suburb visited where C is the ReducedValue 'c'. operator- only contains the name of the operator running the service. fixed- show at max F, where 'F' is the FixedLocations. This will take F locations evenly between all locations. You can also completely turn off this animation using the '--ReducedAnimations' tag.")
 parser.add_argument("-c","--ReducedValue", type=check_positive, default=2, help="If you are using a 'reduced' via message this value is for every n suburbs visited report it in the via; default is 2 ie every other suburb visited report.")
 parser.add_argument("-o","--Destination", choices=["1","2"], default="1", help="Depending on the region the buses destination reported maybe a generic place holder location. If this is the case you can switch to mode 2 for the last stop name.")
 parser.add_argument("-f","--FixedLocations",type=check_positive, default=3, help="If you are using 'fixed' via message this value will limit the max number of via destinations. Taking F locations evenly between a route.")
-parser.add_argument("--ExtraLargeLineName", dest='LargeLineName', action='store_true', help="By default the service number/ name assumes it will be under 3 charcters in length ie 0 - 999. Some regions may use words, such as 'Indigo' Service in Nottingham. Use this tag to expand the named region. When this is on you can not also have show index turned on.")
-parser.add_argument("--ShowOperator",  dest='ShowOperator', action='store_true', help="If at the start of the Via message you want to say both the operator of the service and the Via message use this to turn it on; by defualt it is off.")
+parser.add_argument("--ExtraLargeLineName", dest='LargeLineName', action='store_true', help="By default the service number/ name assumes it will be under 3 characters in length ie 0 - 999. Some regions may use words, such as 'Indigo' Service in Nottingham. Use this tag to expand the named region. When this is on you can not also have show index turned on.")
+parser.add_argument("--ShowOperator",  dest='ShowOperator', action='store_true', help="If at the start of the Via message you want to say both the operator of the service and the Via message use this to turn it on; by default it is off.")
 parser.add_argument("--ReducedAnimations", help="If you wish to stop the Via animation and cycle faster through the services use this tag to turn the animation off.", dest='ReducedAnimations', action='store_true')
 parser.add_argument("--UnfixNextToArrive",dest='FixToArrive', action='store_false', help="Keep the bus sonnest to next arrive at the very top of the display until it has left; by default true")
 parser.add_argument('--no-splashscreen', dest='SplashScreen', action='store_false',help="Do you wish to see the splash screen at start up; recommended and on by default.")
 parser.add_argument('--ShowIndex', dest='ShowIndex', action='store_true',help="Do you wish to see index position for each service due to arrive. This can not be turned on with 'ExtraLargeLineName'")
-parser.add_argument("--Display", default="ssd1322", choices=['ssd1322','pygame','capture','gifanim'], help="Used for devlopment purposes, allows you to switch from a phyiscal display to a virtual emulated one; defualt 'ssd1322'")
+parser.add_argument("--Display", default="ssd1322", choices=['ssd1322','pygame','capture','gifanim'], help="Used for development purposes, allows you to switch from a physical display to a virtual emulated one; default 'ssd1322'")
 parser.add_argument("--max-frames", default=60,dest='maxframes', type=check_positive, help="Used only when using gifanim emulator, sets how long the gif should be.")
 
 
@@ -672,7 +676,7 @@ def Splash():
 	if Args.SplashScreen:
 		with canvas(device) as draw:
 			draw.multiline_text((64, 10), "Departure Board", font= ImageFont.truetype("%s/Bold.ttf"  % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),20), align="center")
-			draw.multiline_text((45, 35), "Version : 1.2.OT -  By Jonathan Foot", font=ImageFont.truetype("%s/Skinny.ttf"  % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
+			draw.multiline_text((45, 35), "Version : 1.3.OT -  By Jonathan Foot", font=ImageFont.truetype("%s/Skinny.ttf"  % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
 		time.sleep(30) #Wait such a long time to allow the device to startup and connect to a WIFI source first.
 
 try:
