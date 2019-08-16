@@ -157,10 +157,12 @@ class LiveTime(object):
         return msg[:35]
 
     def GetExptTime(self, Expected, Sched):
+        #This has been much more complicated than needed to work with 24hr or 12hr systems
+        #And to work with both compact and standard/ full mode.
         ExpTime = ""
         if Expected != None:
             if re.search('[a-zA-Z]', Expected):
-                if Expected != 'On Time':
+                if Expected != 'On time':
                     return Expected
                 else:
                     ExpTime = Expected
@@ -170,7 +172,6 @@ class LiveTime(object):
         else:
             Expected = Sched.strftime("%H:%M")
             ExpTime= self.SchArrival
-
 
         if Args.Design == 'full':
             return ExpTime                       
