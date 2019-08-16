@@ -1,5 +1,10 @@
 # Live Departure Board 
-![Demostartion Display](https://jonathanfoot.com/Assets/DemoDisplay.gif)
+### Bus Departure Board for any UK Bus Stop
+![Bus Demostartion Display](https://jonathanfoot.com/Assets/DemoDisplay.gif)
+
+### Train Departure Board for any UK Station
+![Train Demostartion Display](https://jonathanfoot.com/Assets/TrainDemoDisplay.gif)
+
 
 Live Departure boards is a selection of different Python programs capable of replicating a live bus or rail departure board for any bus stop or train station in the UK. 
 
@@ -13,9 +18,9 @@ Live Departure boards is a selection of different Python programs capable of rep
 
 ## Programs Included
 
-* Reading Buses Depature Board - get live bus stop information for all bus stops serviced by Reading Buses, this program uses the [Reading Buses API](http://rtl2.ods-live.co.uk/cms/apiservice)
-* National Bus Depature Board- get live bus stop infromation from any bus stop in the whole of the UK for all bus services, this program uses the [Transport API](http://transportapi.com)
-* National Railway Depature Board - WIP
+* Reading Buses Depature Board (ReadingBuses.py)- get live bus stop information for all bus stops serviced by Reading Buses, this program uses the [Reading Buses API](http://rtl2.ods-live.co.uk/cms/apiservice)
+* National Bus Depature Board (NationalBuses.py)- get live bus stop infromation from any bus stop in the whole of the UK for all bus services, this program uses the [Transport API](http://transportapi.com)
+* National Railway Depature Board (NationalRail.py) - get live train station information for any UK train station, this program uses the [National Rail API](http://realtime.nationalrail.co.uk/OpenLDBWSRegistration/)
 
 
 ## Example Video
