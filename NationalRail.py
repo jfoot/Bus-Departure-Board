@@ -74,9 +74,9 @@ requiredNamed = parser.add_argument_group('required named arguments')
 requiredNamed.add_argument("-k","--APIToken", help="Your OpenLDBWS National Rail Token, you can get your own from: http://realtime.nationalrail.co.uk/OpenLDBWSRegistration/", type=str,required=True)
 requiredNamed.add_argument("-s","--StationID", help="The Station Code for the specific station you wish to display. View all codes here: https://www.nationalrail.co.uk/stations_destinations/48541.aspx", type=str,required=True)
 Args = parser.parse_args()
-
 # Calculates the size of the font based upon the settings the users used; to best maximise screen space.
 FontSize = 11
+TimeSize = 14
 if Args.Design == 'full':
     if Args.ShowIndex:
         if Args.HidePlatform:
@@ -93,6 +93,13 @@ elif Args.Design == 'compact':
             FontSize=12
     else:
         FontSize=13
+Offset = FontSize
+if Args.Header == 'none':
+    FontSize += 2
+    TimeSize = 16
+    Offset = FontSize/3
+    if Args.Design == 'compact':
+        Offset = 0
 
 ## Defines all the programs "global" variables 
 # Defines the fonts used throughout most the program
@@ -162,6 +169,8 @@ class LiveTime(object):
 
     # Returns the string to display for the predicted arrival text box
     def GetExptTime(self, Expected, Sched):
+        self.LastStaticUpdate = datetime.now()
+
         #This has been much more complicated than needed to work with 24hr or 12hr systems
         #And to work with both compact and standard/ full mode.
         ExpTime = ""
@@ -343,12 +352,12 @@ class ScrollTime():
         self.Controller = controller
         
         self.image_composition = image_composition
-        self.rectangle = ComposableImage(RectangleCover(device).image, position=(0,(FontSize * position) + FontSize*2))
+        self.rectangle = ComposableImage(RectangleCover(device).image, position=(0,(FontSize * position) + FontSize + Offset))
         self.CurrentService = service
         self.DirectService = False
         self.generateCard(service)
         
-        self.IStaticOld =  ComposableImage(StaticTextImage(device,service, previous_service).image, position=(0, FontSize + (FontSize * position)))
+        self.IStaticOld =  ComposableImage(StaticTextImage(device,service, previous_service).image, position=(0, Offset + (FontSize * position)))
         
         self.image_composition.add_image(self.IStaticOld)
         self.image_composition.add_image(self.rectangle)
@@ -368,14 +377,14 @@ class ScrollTime():
     # Generates all the Images (Text boxes) to be drawn on the display.
     def generateCard(self,service):
         displayTimeTemp = TextImage(device, service.ExptArrival)
-        self.IDisplayText =  ComposableImage(TextImage(device, service.DisplayText).image.crop((0,0,240,FontSize)), position=(0, FontSize + (FontSize * self.position)))
-        self.IDisplayTime =  ComposableImage(displayTimeTemp.image, position=(device.width - displayTimeTemp.width, FontSize + (FontSize * self.position)))
+        self.IDisplayText =  ComposableImage(TextImage(device, service.DisplayText).image.crop((0,0,240,FontSize)), position=(0, Offset + (FontSize * self.position)))
+        self.IDisplayTime =  ComposableImage(displayTimeTemp.image, position=(device.width - displayTimeTemp.width, Offset + (FontSize * self.position)))
         
         TempSCallingAt = TextImage(device, "Calling at:")
         TempICallingAt = TextImage(device, service.CallingAt)
         self.DirectService = ',' not in service.CallingAt
-        self.ICallingAt = ComposableImage(TempICallingAt.image.crop((0,0,TempICallingAt.width + 3,FontSize)), position=(TempSCallingAt.width + 3, FontSize + (FontSize * self.position)))
-        self.SCallingAt = ComposableImage(TempSCallingAt.image.crop((0,0,TempSCallingAt.width,FontSize)), position=(0, FontSize + (FontSize * self.position)))
+        self.ICallingAt = ComposableImage(TempICallingAt.image.crop((0,0,TempICallingAt.width + 3,FontSize)), position=(TempSCallingAt.width + 3, Offset + (FontSize * self.position)))
+        self.SCallingAt = ComposableImage(TempSCallingAt.image.crop((0,0,TempSCallingAt.width,FontSize)), position=(0, Offset + (FontSize * self.position)))
 
 	# Called when you have new/updated information from an API call and want to update the objects predicted arrival time.
     def updateCard(self, newService, device):
@@ -384,7 +393,7 @@ class ScrollTime():
         self.image_composition.remove_image(self.IDisplayTime)
 
         displayTimeTemp = TextImage(device, newService.ExptArrival)
-        self.IDisplayTime = ComposableImage(displayTimeTemp.image, position=(device.width - displayTimeTemp.width, FontSize + (FontSize * self.position)))
+        self.IDisplayTime = ComposableImage(displayTimeTemp.image, position=(device.width - displayTimeTemp.width, Offset + (FontSize * self.position)))
     
         self.image_composition.add_image(self.IDisplayTime)
         self.image_composition.refresh()
@@ -397,7 +406,7 @@ class ScrollTime():
             return 
             
         self.synchroniser.busy(self)
-        self.IStaticOld =  ComposableImage(StaticTextImage(device,newService, self.CurrentService).image, position=(0, FontSize + (FontSize * self.position)))
+        self.IStaticOld =  ComposableImage(StaticTextImage(device,newService, self.CurrentService).image, position=(0, Offset + (FontSize * self.position)))
     
         self.image_composition.add_image(self.IStaticOld)
         self.image_composition.add_image(self.rectangle)
@@ -443,7 +452,7 @@ class ScrollTime():
             self.image_composition.remove_image(self.IDisplayTime)
             self.CurrentService.DisplayTime = self.CurrentService.GetDisplayTime()
             displayTimeTemp = TextImage(device, self.CurrentService.DisplayTime)
-            self.IDisplayTime = ComposableImage(displayTimeTemp.image, position=(device.width - displayTimeTemp.width, FontSize + (FontSize * self.position)))           
+            self.IDisplayTime = ComposableImage(displayTimeTemp.image, position=(device.width - displayTimeTemp.width, Offset + (FontSize * self.position)))           
             self.image_composition.add_image(self.IDisplayTime)
             self.image_composition.refresh()
 
@@ -707,7 +716,7 @@ device = cmdline.create_device( DisplayParser.parse_args(['--display', str(Args.
 
 image_composition = ImageComposition(device)
 board = boardFixed(image_composition,Args.Delay,device)
-FontTime = ImageFont.truetype("%s/time.otf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),14)
+FontTime = ImageFont.truetype("%s/time.otf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),TimeSize)
 device.contrast(255)
 energyMode = "normal"
 StartUpDate = datetime.now().date()
@@ -719,14 +728,14 @@ def display():
     with canvas(device, background=image_composition()) as draw:
         image_composition.refresh()
         draw.multiline_text((0, 0), board.GetHeader(), font=BasicFont)
-        draw.multiline_text(((device.width - draw.textsize(msgTime, FontTime)[0])/2, device.height-14), msgTime, font=FontTime, align="center")
+        draw.multiline_text(((device.width - draw.textsize(msgTime, FontTime)[0])/2, device.height-(TimeSize+1)), msgTime, font=FontTime, align="center")
 
 # Draws the splash screen on start up
 def Splash():
     if Args.SplashScreen:
         with canvas(device) as draw:
             draw.multiline_text((64, 10), "Departure Board", font= ImageFont.truetype("%s/Bold.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),20), align="center")
-            draw.multiline_text((45, 35), "Version : 1.0.NR -  By Jonathan Foot", font=ImageFont.truetype("%s/Skinny.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
+            draw.multiline_text((45, 35), "Version : 1.1.NR -  By Jonathan Foot", font=ImageFont.truetype("%s/Skinny.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
         time.sleep(30) #Wait such a long time to allow the device to startup and connect to a WIFI source first.
 
 
