@@ -117,6 +117,7 @@ class LiveTimeStud():
         self.Destination = " "
         self.SchArrival = " "
         self.ExptArrival = " "
+        self.DisplayTime = " "
         self.CallingAt = " "
         self.Platfrom = " "
         self.ID =  " "
@@ -141,7 +142,10 @@ class LiveTime(object):
         self.Destination = str(serviceC.destination_text).split("via")[0]
         self.SchArrival =  datetime.strptime(str(datetime.now().date()) + " "  + Data.sta, '%Y-%m-%d %H:%M').time().strftime("%H:%M" if (Args.TimeFormat==24) else  "%I:%M")
         # The text displayed showing the status of the train, ie, "On time", "Canceled" or "XX:XX"
-        self.ExptArrival = self.GetExptTime(Data.eta, datetime.strptime(str(datetime.now().date()) + " "  + Data.sta, '%Y-%m-%d %H:%M'))
+        self.ExptArrival = str(Data.eta) if Data.eta != None else datetime.strptime(str(datetime.now().date()) + " "  + Data.sta, '%Y-%m-%d %H:%M').time().strftime("%H:%M")
+        
+        #, datetime.strptime(str(datetime.now().date()) + " "  + Data.sta, '%Y-%m-%d %H:%M'))
+        self.DisplayTime =  self.GetExptTime()
         # The text displayed showing where the train will be stopping at along the way.
         self.CallingAt = str([cp.location_name for cp in Data.subsequent_calling_points]).replace(']','').replace('[','')
         self.Platform = str(serviceC.platform) if serviceC.platform != None else ""
@@ -168,34 +172,32 @@ class LiveTime(object):
         return msg[:35]
 
     # Returns the string to display for the predicted arrival text box
-    def GetExptTime(self, Expected, Sched):
+    def GetExptTime(self):
         self.LastStaticUpdate = datetime.now()
 
         #This has been much more complicated than needed to work with 24hr or 12hr systems
         #And to work with both compact and standard/ full mode.
         ExpTime = ""
-        if Expected != None:
-            if re.search('[a-zA-Z]', Expected):
-                if Expected != 'On time':
-                    return Expected
-                else:
-                    ExpTime = Expected
-                    Expected = Sched.strftime("%H:%M")
-            else:
-                ExpTime = datetime.strptime(str(datetime.now().date()) + " "  + Expected, '%Y-%m-%d %H:%M').time().strftime("%H:%M" if (Args.TimeFormat==24) else  "%I:%M")
-        else:
-            Expected = Sched.strftime("%H:%M")
-            ExpTime= self.SchArrival
-
+        
+        
         if Args.Design == 'full':
-            return ExpTime                       
-        else:          
+            if re.search('[a-zA-Z]', self.ExptArrival):
+                return self.ExptArrival
+            else:
+                return datetime.strptime(str(datetime.now().date()) + " "  + self.ExptArrival, '%Y-%m-%d %H:%M').time().strftime("%H:%M" if (Args.TimeFormat==24) else  "%I:%M")
+        else: 
+            if re.search('[a-zA-Z]', self.ExptArrival) and self.ExptArrival != 'On time':          
+                return self.ExptArrival
+            
+            ExpTime = self.ExptArrival
+            if self.ExptArrival == 'On time':
+                ExpTime = self.SchArrival
             try:
-                Diff =  (datetime.strptime(Expected, "%H:%M").replace(year=datetime.now().year,month=datetime.now().month,day=datetime.now().day) - datetime.now()).total_seconds() / 60
+                Diff =  (datetime.strptime(ExpTime, "%H:%M" if (Args.TimeFormat==24) else  "%I:%M").replace(year=datetime.now().year,month=datetime.now().month,day=datetime.now().day) - datetime.now()).total_seconds() / 60
                 if Diff <= 0.75:
                     return ' Arriving'
                 if Diff >=15 :
-                    return Expected
+                    return ExpTime
                 return  ' %d min' % Diff
             except Exception as e:
                 print(str(e))
@@ -260,14 +262,14 @@ class StaticTextImage():
         self.image = Image.new(device.mode, (device.width, FontSize*2))
         draw = ImageDraw.Draw(self.image)
         
-        displayTimeTempPrevious = TextImage(device, previous_service.ExptArrival)
-        displayTimeTemp = TextImage(device, service.ExptArrival)
+        displayTimeTempPrevious = TextImage(device, previous_service.DisplayTime)
+        displayTimeTemp = TextImage(device, service.DisplayTime)
 
         draw.text((0, FontSize), service.DisplayText, font=BasicFont, fill="white")
-        draw.text((device.width - displayTimeTemp.width, FontSize), service.ExptArrival, font=BasicFont, fill="white")
+        draw.text((device.width - displayTimeTemp.width, FontSize), service.DisplayTime, font=BasicFont, fill="white")
     
         draw.text((0, 0), previous_service.DisplayText, font=BasicFont, fill="white")
-        draw.text((device.width - displayTimeTempPrevious.width, 0), previous_service.ExptArrival, font=BasicFont, fill="white")
+        draw.text((device.width - displayTimeTempPrevious.width, 0), previous_service.DisplayTime, font=BasicFont, fill="white")
     
         self.width = device.width 
         self.height = FontSize * 2
@@ -376,7 +378,7 @@ class ScrollTime():
     
     # Generates all the Images (Text boxes) to be drawn on the display.
     def generateCard(self,service):
-        displayTimeTemp = TextImage(device, service.ExptArrival)
+        displayTimeTemp = TextImage(device, service.DisplayTime)
         self.IDisplayText =  ComposableImage(TextImage(device, service.DisplayText).image.crop((0,0,240,FontSize)), position=(0, Offset + (FontSize * self.position)))
         self.IDisplayTime =  ComposableImage(displayTimeTemp.image, position=(device.width - displayTimeTemp.width, Offset + (FontSize * self.position)))
         
@@ -392,7 +394,7 @@ class ScrollTime():
         self.synchroniser.ready(self)
         self.image_composition.remove_image(self.IDisplayTime)
 
-        displayTimeTemp = TextImage(device, newService.ExptArrival)
+        displayTimeTemp = TextImage(device, newService.DisplayTime)
         self.IDisplayTime = ComposableImage(displayTimeTemp.image, position=(device.width - displayTimeTemp.width, Offset + (FontSize * self.position)))
     
         self.image_composition.add_image(self.IDisplayTime)
@@ -450,11 +452,12 @@ class ScrollTime():
         #Update X min till arrival.
         if self.CurrentService.TimePassedStatic() and (self.state == self.SCROLL_DECIDER or self.state == self.SCROLLING_WAIT or self.state == self.SCROLLING or self.state == self.WAIT_SYNC):
             self.image_composition.remove_image(self.IDisplayTime)
-            self.CurrentService.DisplayTime = self.CurrentService.GetDisplayTime()
+            self.CurrentService.DisplayTime = self.CurrentService.GetExptTime()
             displayTimeTemp = TextImage(device, self.CurrentService.DisplayTime)
             self.IDisplayTime = ComposableImage(displayTimeTemp.image, position=(device.width - displayTimeTemp.width, Offset + (FontSize * self.position)))           
             self.image_composition.add_image(self.IDisplayTime)
             self.image_composition.refresh()
+
 
 
         if self.state == self.WAIT_OPENING:
