@@ -85,6 +85,7 @@ if Args.Design == 'full':
             FontSize=11
     else:
         FontSize=12
+    Offset = FontSize
 elif Args.Design == 'compact':
     if Args.ShowIndex:
         if Args.HidePlatform:
@@ -93,14 +94,15 @@ elif Args.Design == 'compact':
             FontSize=12
     else:
         FontSize=13
-Offset = FontSize
-if Args.Header == 'none':
-    FontSize += 2
-    TimeSize = 16
-    Offset = FontSize/3
-    if Args.Design == 'compact':
-        Offset = 0
-
+    Offset = FontSize
+    if Args.Header == 'none' :
+        if Args.HidePlatform:
+            FontSize += 2
+        else:
+            FontSize += 1     
+        TimeSize = 16
+        Offset = FontSize/3
+    
 ## Defines all the programs "global" variables 
 # Defines the fonts used throughout most the program
 BasicFont = ImageFont.truetype("%s/lower.ttf" %(os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) ), FontSize-1)
