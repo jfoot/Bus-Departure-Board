@@ -140,11 +140,9 @@ class LiveTime(object):
     def __init__(self, Data, Index, serviceC):
         self.Index = str(inflect.engine().ordinal(Index))
         self.Destination = str(serviceC.destination_text).split("via")[0]
-        self.SchArrival =  datetime.strptime(str(datetime.now().date()) + " "  + Data.sta, '%Y-%m-%d %H:%M').time().strftime("%H:%M" if (Args.TimeFormat==24) else  "%I:%M")
+        self.SchArrival =  str(Data.sta)
         # The text displayed showing the status of the train, ie, "On time", "Canceled" or "XX:XX"
-        self.ExptArrival = str(Data.eta) if Data.eta != None else datetime.strptime(str(datetime.now().date()) + " "  + Data.sta, '%Y-%m-%d %H:%M').time().strftime("%H:%M")
-        
-        #, datetime.strptime(str(datetime.now().date()) + " "  + Data.sta, '%Y-%m-%d %H:%M'))
+        self.ExptArrival = str(Data.eta) if Data.eta != None else str(Data.sta)      
         self.DisplayTime =  self.GetExptTime()
         # The text displayed showing where the train will be stopping at along the way.
         self.CallingAt = str([cp.location_name for cp in Data.subsequent_calling_points]).replace(']','').replace('[','')
@@ -164,7 +162,7 @@ class LiveTime(object):
         if Args.ShowIndex:
             msg += self.Index + ' '
         if Args.Design == 'full':
-            msg += self.SchArrival + ' '
+            msg += datetime.strptime(str(datetime.now().date()) + " "  + self.SchArrival, '%Y-%m-%d %H:%M').time().strftime("%H:%M" if (Args.TimeFormat==24) else  "%I:%M") + ' '
         if not Args.HidePlatform:
             msg += self.Platform
             msg += ' '  * (4 - len(self.Platform))
@@ -174,12 +172,7 @@ class LiveTime(object):
     # Returns the string to display for the predicted arrival text box
     def GetExptTime(self):
         self.LastStaticUpdate = datetime.now()
-
-        #This has been much more complicated than needed to work with 24hr or 12hr systems
-        #And to work with both compact and standard/ full mode.
-        ExpTime = ""
-        
-        
+                
         if Args.Design == 'full':
             if re.search('[a-zA-Z]', self.ExptArrival):
                 return self.ExptArrival
@@ -193,7 +186,7 @@ class LiveTime(object):
             if self.ExptArrival == 'On time':
                 ExpTime = self.SchArrival
             try:
-                Diff =  (datetime.strptime(ExpTime, "%H:%M" if (Args.TimeFormat==24) else  "%I:%M").replace(year=datetime.now().year,month=datetime.now().month,day=datetime.now().day) - datetime.now()).total_seconds() / 60
+                Diff =  (datetime.strptime(ExpTime, "%H:%M").replace(year=datetime.now().year,month=datetime.now().month,day=datetime.now().day) - datetime.now()).total_seconds() / 60
                 if Diff <= 0.75:
                     return ' Arriving'
                 if Diff >=15 :
@@ -202,6 +195,7 @@ class LiveTime(object):
             except Exception as e:
                 print(str(e))
                 return ExpTime
+
 
 	# Returns true or false dependent upon if the last time an API data call was made was over the request limit; to prevent spamming the API feed.
     @staticmethod
