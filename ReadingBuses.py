@@ -1,6 +1,7 @@
 # This software was produced by Jonathan Foot (c) 2019, all rights reserved.
 # Project Website : https://departureboard.jonathanfoot.com
 # Documentation   : https://jonathanfoot.com/Projects/DepartureBoard
+# Description     : This program allows you to display a live bus departure board for any Reading Buses service.
 
 import urllib2
 import time
@@ -16,10 +17,11 @@ from lxml import objectify
 from datetime import datetime, date
 from luma.core.image_composition import ImageComposition, ComposableImage
 
-
-
-##Start Up Paramarter Checks
-#Checks value is greater than Zero.
+###
+# Below Declares all the program optional and compulsory settings/ start up paramters. 
+###
+## Start Up Paramarter Checks
+# Checks value is greater than Zero.
 def check_positive(value):
 	try:
 		ivalue = int(value)
@@ -29,6 +31,7 @@ def check_positive(value):
 	except:
 		raise argparse.ArgumentTypeError("%s is invalid, value must be an integer value greater than 0." % value)
 
+# Checks string is a valid time range, in the format of "00:00-24:00"
 def check_time(value):
 	try:
 		datetime.strptime(value.split("-")[0], '%H:%M').time()
@@ -37,9 +40,8 @@ def check_time(value):
 		raise argparse.ArgumentTypeError("%s is invalid, value must be in the form of XX:XX-YY:YY, where the values are in 24hr format." % value)
 	return [datetime.strptime(value.split("-")[0], '%H:%M').time(),  datetime.strptime(value.split("-")[1], '%H:%M').time()]
 
-
+## Defines all optional paramaters
 parser = argparse.ArgumentParser(description='Reading Buses Live Departure Board, to run the program you will need to pass it all of the required paramters and you may wish to pass any optional paramters.')
-#Defines all optional paramaters
 parser.add_argument("-t","--TimeFormat", help="Do you wish to use 24hr or 12hr time format; default is 24hr.", type=int,choices=[12,24],default=24)
 parser.add_argument("-v","--Speed", help="What speed do you want the text to scroll at on the display; default is 3, must be greater than 0.", type=check_positive,default=3)
 parser.add_argument("-d","--Delay", help="How long the display will pause before starting the next animation; default is 30, must be greater than 0.", type=check_positive,default=30)
@@ -60,20 +62,22 @@ parser.add_argument('--no-splashscreen', dest='SplashScreen', action='store_fals
 parser.add_argument("--Display", default="ssd1322", choices=['ssd1322','pygame','capture','gifanim'], help="Used for development purposes, allows you to switch from a physical display to a virtual emulated one; default 'ssd1322'")
 parser.add_argument("--max-frames", default=60,dest='maxframes', type=check_positive, help="Used only when using gifanim emulator, sets how long the gif should be.")
 
-
-
-#Defines the required paramaters
+# Defines all required paramaters
 requiredNamed = parser.add_argument_group('required named arguments')
 requiredNamed.add_argument("-k","--APIKey", help="Your Reading Buses API Key, you can get your own from: http://rtl2.ods-live.co.uk/cms/apiservice", type=str,required=True)
 requiredNamed.add_argument("-s","--StopID", help="The Naptan Code for the specific bus stop you wish to display.", type=str,required=True)
 Args = parser.parse_args()
+
+## Defines all the programs "global" variables 
+# Defines the basic font used throughout most of the text boxes in the program
 BasicFont = ImageFont.truetype("%s/lower.ttf" %(os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) ),14)
+# Defines the place holder via message when one can not be found/ given in the API.
 GenericVia = "Via Central Reading"
 
 ###
-# Below contains the class which gets API data from the Reading Buses API. You should pass the API key in as a paramater on startup.
+# Below contains the class which is used to reperesent one instance of a service record. It is also responsible for getting the information from the Reading Buses API.
 ###
-#Used to create a blank object, needed in start-up or when there are less than 3 services currently schedualed. 
+# Used to create a blank object, needed in start-up or when there are less than 3 services currently scheduled. 
 class LiveTimeStud():
 	def __init__(self):
 		self.ServiceNumber = " "
@@ -88,42 +92,50 @@ class LiveTimeStud():
 		return False
 		
 	
-#Used to get live data from the Reading Buses API.
+# Used to get live data from the Reading Buses API and represent a specific services and it's details.
 class LiveTime(object):
+	# The last time an API call was made to get new data.
 	LastUpdate = datetime.now()
-
+	
+	# * Change this method to implement your own API *
 	def __init__(self, Data, Index):
 		self.ServiceNumber = "%s.%s" % (Index + 1, str(Data.LineRef)) if Args.ShowIndex else str(Data.LineRef)
 		self.Destination = str(Data.DestinationName)
 		self.SchArrival = str(Data.MonitoredCall.AimedArrivalTime).split("+")[0]
 		self.ExptArrival = str(getattr( Data.MonitoredCall, "ExpectedArrivalTime", "")).split("+")[0]
+		# The "Via" message, which lists where the service will go through, if unknown use generic message.
 		self.Via = str(getattr(Data, "Via", GenericVia))
+		# The formated string containing the time of arrival, to be printed on the display screen.
 		self.DisplayTime = self.GetDisplayTime()
 		self.ID =  str(Data.FramedVehicleJourneyRef.DatedVehicleJourneyRef)
-		self.LastStaticUpdate = datetime.now()
-
+	
 	#Returns the value to display the time on the board.
 	def GetDisplayTime(self):
+		# Last time the display screen was updated to reflect the new time of arrival.
 		self.LastStaticUpdate = datetime.now()
+		# If unknown predicted time use scheduled (time tabled) time.
 		if self.ExptArrival == "":
 			return " " + datetime.strptime(self.SchArrival, '%Y-%m-%dT%H:%M:%S').strftime("%H:%M" if (Args.TimeFormat==24) else  "%I:%M")
 		else:
 			Diff =  (datetime.strptime(self.ExptArrival, '%Y-%m-%dT%H:%M:%S') - datetime.now()).total_seconds() / 60
 			if Diff <= 2:
 				return ' Due'
+			# If more than 15min away show the time as 'XX:XX', else show it as a count down in 'X min'
 			if Diff >=15 :
 				return ' ' + datetime.strptime(self.SchArrival, '%Y-%m-%dT%H:%M:%S').strftime("%H:%M" if (Args.TimeFormat==24) else  "%I:%M")
 			return  ' %d min' % Diff
 
+	# Returns true or false dependent upon if the last time an API data call was made was over the request limit; to prevent spamming the API feed.
 	@staticmethod
 	def TimePassed():
 		return (datetime.now() - LiveTime.LastUpdate).total_seconds() > Args.RequestLimit
 
+	# Return true or false dependent upon if the last time the display was updated was over the static update limit. This prevents updating the display to frequently to increase performance.
 	def TimePassedStatic(self):
 		return ("min" in self.DisplayTime) and (datetime.now() - self.LastStaticUpdate).total_seconds() > Args.StaticUpdateLimit 
 
-
-	#Used to actually get the data from the API
+	# Calls the API and gets the data from it, returning a list of LiveTime objects to be used in the program.
+	# * Change this method to implement your own API *
 	@staticmethod
 	def GetData():
 		LiveTime.LastUpdate = datetime.now()
@@ -133,16 +145,17 @@ class LiveTime(object):
 			raw = urllib2.urlopen("https://rtl2.ods-live.co.uk/api/siri/sm?key=%s&location=%s" % (Args.APIKey, Args.StopID)).read()
 			rawServices = objectify.fromstring(raw)
 		
-			#Makes sure the same service isn't got multiple times.
+			# The Reading Buses API sometimes reports the same bus multiple times. To work around this we need to check if we have already found it.
 			for root in rawServices.ServiceDelivery.StopMonitoringDelivery.MonitoredStopVisit:
 				service = root.MonitoredVehicleJourney
-				exsits = False
+				exists = False
 				for current in services:
 					if current.ID == service.FramedVehicleJourneyRef.DatedVehicleJourneyRef:
-						exsits = True
+						exists = True
 						break
-
-				if exsits == False and str(service.LineRef) not in Args.ExcludeServices:
+				# If not already recorded and not in the excluded services list add it.
+				if exists == False and str(service.LineRef) not in Args.ExcludeServices:
+					# Convert the custom Reading Buses API object into a LiveTime object and add it to the list.
 					services.append(LiveTime(service, len(services)))
 			return services
 		except Exception as e:
@@ -151,10 +164,11 @@ class LiveTime(object):
 
 
 ###
-# Below contains everything for the drawing and animating of the board.
+# Below contains everything for the drawing on the board.
+# All text must be converted into Images, for the image to be displayed on the display.
 ###
 
-#Used to create the time and service number on the board
+# Used to create the time and service number on the board or any other basic text box.
 class TextImage():
 	def __init__(self, device, text):
 		self.image = Image.new(device.mode, (device.width, 16))
@@ -165,7 +179,7 @@ class TextImage():
 		self.height = 5 + draw.textsize(text, BasicFont)[1]
 		del draw
 
-#Used to create the destination and via board.
+# Used to create the destination and via board.
 class TextImageComplex():
 	def __init__(self, device, destination, via, startOffset):
 		self.image = Image.new(device.mode, (device.width*2, 16))
@@ -177,7 +191,7 @@ class TextImageComplex():
 		self.height = 16
 		del draw
 
-#Used for the opening animation, creates a static two lines of the new and previous service.
+# Used for the opening animation, creates a static two lines of the new and previous service.
 class StaticTextImage():
 	def __init__(self, device, service, previous_service):			
 		self.image = Image.new(device.mode, (device.width, 32))
@@ -197,7 +211,7 @@ class StaticTextImage():
 		self.height = 32
 		del draw
 
-#Used to draw a black cover over hidden stuff.
+# Used to draw a black cover over hidden stuff.
 class RectangleCover():
 	def __init__(self, device):		
 		w = device.width
@@ -211,7 +225,7 @@ class RectangleCover():
 		self.width = w 
 		self.height = h
 
-#Error message displayed when no data can be found.
+# Error message displayed when no data can be found.
 class NoService():
 	def __init__(self, device):		
 		w = device.width
@@ -225,10 +239,11 @@ class NoService():
 		self.height = draw.textsize(msg, font=BasicFont)[1]
 		del draw
 
+###
+## Synchronizer, used to keep track what is busy doing work and what is ready to do more work.
+###
 
-
-#Syncroniser
-#Used to ensure that only 1 animation is playing at any given time, apart from at the start; where all three can animate in.
+# Used to ensure that only 1 animation is playing at any given time, apart from at the start; where all three can animate in.
 class Synchroniser():
 	def __init__(self):
 		self.synchronised = {}
@@ -246,9 +261,11 @@ class Synchroniser():
 		return True
 
 
+###
+## Below contains the class which represents a single row on the bus display, a LiveTime object contains all the information on a service and is then wrapped up in a ScrollTime Object
+## This object contains the state of the object, such as if it is in an animation and what should be displayed to the display.
+###
 
-#Board Line
-#Defines what one line of the display will show, i.e. what serivce that row is an what animation it should currently be running 
 class ScrollTime():
 	WAIT_OPENING = 0
 	OPENING_SCROLL = 1
@@ -257,7 +274,6 @@ class ScrollTime():
 	SCROLLING_WAIT = 4
 	SCROLLING = 5
 	WAIT_SYNC = 6
-
 	WAIT_STUD = 7
 	STUD_SCROLL = 8
 	STUD_END = 9
@@ -293,6 +309,7 @@ class ScrollTime():
 		self.render()
 		self.synchroniser.ready(self)
 
+	# Generates all the Images (Text boxes) to be drawn on the display.
 	def generateCard(self,service):
 		displayTimeTemp = TextImage(device, service.DisplayTime)
 		IDestinationTemp  = TextImageComplex(device, service.Destination,service.Via, displayTimeTemp.width)
@@ -301,6 +318,7 @@ class ScrollTime():
 		self.IServiceNumber =  ComposableImage(TextImage(device, service.ServiceNumber).image.crop((0,0,45 if Args.ShowIndex else 30,16)), position=(0, 16 * self.position))
 		self.IDisplayTime =  ComposableImage(displayTimeTemp.image, position=(device.width - displayTimeTemp.width, 16 * self.position))
 
+	# Called when you have new/updated information from an API call and want to update the objects predicted arrival time.
 	def updateCard(self, newService, device):
 		self.state = self.SCROLL_DECIDER
 		self.synchroniser.ready(self)
@@ -312,7 +330,7 @@ class ScrollTime():
 		self.image_composition.add_image(self.IDisplayTime)
 		self.image_composition.refresh()
 
-
+	# Called when you want to change the row from one service to another.
 	def changeCard(self, newService, device):
 		if newService.ID == "0" and self.CurrentService.ID == "0":
 			self.state = self.STUD
@@ -341,6 +359,7 @@ class ScrollTime():
 		
 		self.state = self.WAIT_STUD if (newService.ID == "0") else self.WAIT_OPENING
 		
+	# Used when you want to delete the row/card/object.
 	def delete(self):
 		try:
 			self.image_composition.remove_image(self.IStaticOld)
@@ -355,6 +374,7 @@ class ScrollTime():
 			pass  
 		self.image_composition.refresh() 
 
+	# Called upon each time you want to get the next frame for the display.
 	def tick(self):
 		#Update X min till arrival.
 		if self.CurrentService.TimePassedStatic() and (self.state == self.SCROLL_DECIDER or self.state == self.SCROLLING_WAIT or self.state == self.SCROLLING or self.state == self.WAIT_SYNC):
@@ -449,13 +469,14 @@ class ScrollTime():
 				self.Controller.requestCardChange(self, self.position + 1)
 			
 		
-
+	# Sets the image offest for the animation, telling it how to render.
 	def render(self):
 		if(self.state == self.SCROLLING or self.state == self.WAIT_SYNC):
 			self.IDestination.offset = (self.image_x_pos, 0)
 		if(self.state == self.OPENING_SCROLL or self.state == self.STUD_SCROLL):
 			self.IStaticOld.offset= (0,self.image_y_posA)
 	
+	# Used to reset the image on the display.
 	def refresh(self):
 		self.image_composition.remove_image(self.IDestination)
 		self.image_composition.remove_image(self.IServiceNumber)
@@ -464,10 +485,12 @@ class ScrollTime():
 		self.image_composition.add_image(self.IServiceNumber)
 		self.image_composition.add_image(self.IDisplayTime)
 
-
+	# Used to add a partner; this is the row below it self. Used when needed to tell partner to redraw itself
+	# on top of the row above it (layering the text boxes correctly)
 	def addPartner(self, partner):
 		self.partner = partner
 
+	# Used to add a time delay between animations.
 	def is_waiting(self):
 		self.ticks += 1
 		if self.ticks > self.delay:
@@ -475,9 +498,10 @@ class ScrollTime():
 			return False
 		return True
 
-
-#Board Controller
-#Defines the board which controls what each off the lines in the display will show at any time
+###
+## Board Controller
+## Defines the board which controls what each off the rows in the display will show at any time.
+###
 class boardFixed():
 	def __init__(self, image_composition, scroll_delay, device):
 		self.Services = LiveTime.GetData()   
@@ -495,21 +519,21 @@ class boardFixed():
 		self.top.addPartner(self.middel)
 		self.middel.addPartner(self.bottom)
 	
-
-	#Set up the cards for the inital starting animation.
+	# Set up the cards for the initial starting animation.
 	def setInitalCards(self):
 		self.top = ScrollTime(image_composition, len(self.Services) >= 1 and self.Services[0] or LiveTimeStud(),LiveTimeStud(), self.scroll_delay, self.synchroniser, device, 0, self)
 		self.middel = ScrollTime(image_composition, len(self.Services) >= 2 and self.Services[1] or LiveTimeStud(),LiveTimeStud(), self.scroll_delay, self.synchroniser, device, 1,self)
 		self.bottom = ScrollTime(image_composition, len(self.Services) >= 3 and self.Services[2] or LiveTimeStud(),LiveTimeStud(), self.scroll_delay, self.synchroniser, device, 2, self)
 		self.x = len(self.Services) < 3 and len(self.Services) or 3
 
+	# Called upon every time a new frame is needed.
 	def tick(self):
 		#If no data can be found.
 		if len(self.Services) == 0:
 			if self.ticks == 0:
 				self.image_composition.add_image(self.NoServices)
 
-			#Wait a peroid of time then try getting new data again.
+			#Wait a period of time then try getting new data again.
 			if not self.is_waiting():
 				self.top.delete()
 				del self.top
@@ -520,27 +544,32 @@ class boardFixed():
 				self.image_composition.remove_image(self.NoServices)
 				self.State = "dead"
 		else:
+			# Tell all rows of the display next frame is wantted.
 			self.top.tick()
 			self.middel.tick()
 			self.bottom.tick()
 	
+	# Called when a row has completed one cycle of it's states and requests to change card, here the program decides what to do.
 	def requestCardChange(self, card, row):
+		# If it has cycled through all cards, cycle from start again, unless enough time has passed for a new API request.
 		if (self.x > Args.NumberOfCards or self.x >len(self.Services)-1):
 			self.x = 1 if Args.FixToArrive else 0
 			if LiveTime.TimePassed():  
 				self.Services = LiveTime.GetData()
 				print("New Data Retrieved %s" % datetime.now().time())
-
+		
+		# If there are more rows (3) than there is services scheduled show nothing.
 		if row > len(self.Services):       
 			card.changeCard(LiveTimeStud(),device)
 			return
-
+		# If there is exactly 3 or less services the order in which they appear on the display is fixed to the order they will arrive in.
 		if len(self.Services) <= 3:
 			if self.Services[row-1].ID == card.CurrentService.ID:
 				card.updateCard(self.Services[row-1],device)
 			else:
 				card.changeCard(self.Services[row-1],device)
 		else:
+			# If not they will cycled around showing whatever card is next.
 			if Args.FixToArrive and row == 1:
 				if self.Services[0].ID == card.CurrentService.ID:
 					card.updateCard(self.Services[0],device)
@@ -555,8 +584,7 @@ class boardFixed():
 		if  not (Args.FixToArrive and row == 1):
 			self.x = self.x + 1
 
-
-
+	# Used to add a time delay if there was an error with the last API request (providing a back off and wait mechanism)
 	def is_waiting(self):
 		self.ticks += 1
 		if self.ticks > Args.RecoveryTime:
@@ -564,9 +592,8 @@ class boardFixed():
 			return False
 		return True
 	
-		
 
-
+# Used to work out if the current time is between the inactive hours.
 def is_time_between():
 	# If check time is not given, default to current UTC time
 	check_time = datetime.now().time()
@@ -576,10 +603,10 @@ def is_time_between():
 		return check_time >= Args.InactiveHours[0] or check_time <= Args.InactiveHours[1]
 
 
-
-#Main
-#Connects to the display and makes it update forever until ended by the user with a ctrl-c
-
+###
+## Main
+## Connects to the display and makes it update forever until ended by the user with a ctrl-c
+###
 DisplayParser = cmdline.create_parser(description='Dynamically connect to either a vritual or physical display.')
 device = cmdline.create_device( DisplayParser.parse_args(['--display', str(Args.Display),'--interface','spi','--width','256','--rotate',str(Args.Rotation),'--max-frames',str(Args.maxframes)]))
 
@@ -591,6 +618,7 @@ device.contrast(255)
 energyMode = "normal"
 StartUpDate = datetime.now().date()
 
+# Draws the clock and tells the rest of the display next frame wanted.
 def display():
 	board.tick()
 	msgTime = str(datetime.now().strftime("%H:%M" if (Args.TimeFormat==24) else "%I:%M"))	
@@ -598,6 +626,7 @@ def display():
 		image_composition.refresh()
 		draw.multiline_text(((device.width - draw.textsize(msgTime, FontTime)[0])/2, device.height-16), msgTime, font=FontTime, align="center")
 
+# Draws the splash screen on start up
 def Splash():
 	if Args.SplashScreen:
 		with canvas(device) as draw:
@@ -607,10 +636,8 @@ def Splash():
 
 
 try:
-
 	Splash()
-	
-		
+	# Run the program forever		
 	while True:
 		time.sleep(0.02)
 
@@ -619,8 +646,9 @@ try:
 			board = boardFixed(image_composition,Args.Delay,device)
 			device.clear()
 
-
+		# Turns the display into one of the energy saving modes if in the correct time and enabled.
 		if (Args.EnergySaverMode != "none" and is_time_between()):
+			# Check for program updates and restart the pi every 'UpdateDays' Days.
 			if (datetime.now().date() - StartUpDate).days >= Args.UpdateDays:
 				print "Checking for updates and then restarting Pi."
 				os.system("sudo git -C %s pull; sudo reboot" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))))
