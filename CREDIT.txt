@@ -1,0 +1,20 @@
+This project was first created by Jonathan Foot (Github: jfoot).
+All rights are reserved (C) 2019.
+
+Project Website: https://departureboard.jonathanfoot.com
+Documentation: https://jonathanfoot.com/Projects/DepartureBoard
+Terms and Conditions: https://jonathanfoot.com/Projects/DepartureBoard/TermsAndConditions
+Contact: jonathan@jonathanfoot.com
+	
+Description: This project currently consists of three programs which 
+will emulate a live rail or bus departure board and display it on 
+an ER-OLEDM032 display (256X64).
+
+Project Includes:
+	ReadingBuses.py – Display any Reading Buses stop and services.
+	NationalBuses.py – Display any UK bus stop, data quality may 
+	vary region to region.
+	NationalRail.py – Display any UK train station, excluding the 
+	London Underground.
+	Demo.py - Test the program without needing any API credentials.
+
