@@ -101,7 +101,7 @@ elif Args.Design == 'compact':
         else:
             FontSize += 1     
         TimeSize = 16
-        Offset = FontSize/3
+        Offset = FontSize/4
     
 ## Defines all the programs "global" variables 
 # Defines the fonts used throughout most the program
@@ -154,7 +154,7 @@ class LiveTime(object):
         # The main text displayed on the screen.
         self.DisplayText = self.GetDisplayMessage()
 
-        # Currently not used in the program
+        ## Currently not used in the program
         #self.IsCancelled = str(Data.is_cancelled)
         #self.DisruptionReason = str(Data.disruption_reason)
     
@@ -189,7 +189,7 @@ class LiveTime(object):
                 ExpTime = self.SchArrival
             try:
                 Diff =  (datetime.strptime(ExpTime, "%H:%M").replace(year=datetime.now().year,month=datetime.now().month,day=datetime.now().day) - datetime.now()).total_seconds() / 60
-                if Diff <= 0.75:
+                if Diff <= 1:
                     return ' Arriving'
                 if Diff >=15 :
                     return ExpTime
@@ -243,7 +243,7 @@ class LiveTime(object):
 # Used to create the time on the board or any other basic text box.
 class TextImage():
     def __init__(self, device, text):
-        self.image = Image.new(device.mode, (device.width*5, FontSize))
+        self.image = Image.new(device.mode, (device.width, FontSize))
         draw = ImageDraw.Draw(self.image)
         draw.text((0, 0), text, font=BasicFont, fill="white")
     
@@ -251,6 +251,16 @@ class TextImage():
         self.height = 5 + draw.textsize(text, BasicFont)[1]
         del draw
 
+# Used to create the Calling At text box due to the length needed.
+class LongTextImage():
+    def __init__(self, device, text):
+        self.image = Image.new(device.mode, (device.width*5, FontSize))
+        draw = ImageDraw.Draw(self.image)
+        draw.text((0, 0), text, font=BasicFont, fill="white")
+    
+        self.width = 5 + draw.textsize(text, BasicFont)[0]
+        self.height = 5 + draw.textsize(text, BasicFont)[1]
+        del draw
 
 #Used for the opening animation, creates a static two lines of the new and previous service.
 class StaticTextImage():
@@ -379,7 +389,7 @@ class ScrollTime():
         self.IDisplayTime =  ComposableImage(displayTimeTemp.image, position=(device.width - displayTimeTemp.width, Offset + (FontSize * self.position)))
         
         TempSCallingAt = TextImage(device, "Calling at:")
-        TempICallingAt = TextImage(device, service.CallingAt)
+        TempICallingAt = LongTextImage(device, service.CallingAt)
         self.DirectService = ',' not in service.CallingAt
         self.ICallingAt = ComposableImage(TempICallingAt.image.crop((0,0,TempICallingAt.width + 3,FontSize)), position=(TempSCallingAt.width + 3, Offset + (FontSize * self.position)))
         self.SCallingAt = ComposableImage(TempSCallingAt.image.crop((0,0,TempSCallingAt.width,FontSize)), position=(0, Offset + (FontSize * self.position)))
