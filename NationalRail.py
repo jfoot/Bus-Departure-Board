@@ -358,7 +358,7 @@ class ScrollTime():
         self.speed = Args.Speed
         self.position = position
         self.Controller = controller
-        
+        self.max_pos = 0 #Place holder until set in generateCards()
         self.image_composition = image_composition
         self.rectangle = ComposableImage(RectangleCover(device).image, position=(0,(FontSize * position) + FontSize + Offset))
         self.CurrentService = service
@@ -369,7 +369,6 @@ class ScrollTime():
         
         self.image_composition.add_image(self.IStaticOld)
         self.image_composition.add_image(self.rectangle)
-        self.max_pos = self.ICallingAt.width 
 
         self.image_y_posA = 0
         self.image_x_pos = 0
@@ -391,8 +390,10 @@ class ScrollTime():
         TempSCallingAt = TextImage(device, "Calling at:")
         TempICallingAt = LongTextImage(device, service.CallingAt)
         self.DirectService = ',' not in service.CallingAt
-        self.ICallingAt = ComposableImage(TempICallingAt.image.crop((0,0,TempICallingAt.width + 3,FontSize)), position=(TempSCallingAt.width + 3, Offset + (FontSize * self.position)))
+        self.ICallingAt = ComposableImage(TempICallingAt.image.crop((0,0,max(TempICallingAt.width + 3,256) ,FontSize)), position=(TempSCallingAt.width + 3, Offset + (FontSize * self.position)))
         self.SCallingAt = ComposableImage(TempSCallingAt.image.crop((0,0,TempSCallingAt.width,FontSize)), position=(0, Offset + (FontSize * self.position)))
+        self.max_pos = TempICallingAt.width + 3 
+
 
 	# Called when you have new/updated information from an API call and want to update the objects predicted arrival time.
     def updateCard(self, newService, device):
@@ -430,7 +431,6 @@ class ScrollTime():
 
         self.generateCard(newService)
         self.CurrentService = newService
-        self.max_pos = self.ICallingAt.width
         
         self.state = self.WAIT_STUD if (newService.ID == "0") else self.WAIT_OPENING
 
@@ -744,7 +744,7 @@ def Splash():
     if Args.SplashScreen:
         with canvas(device) as draw:
             draw.multiline_text((64, 10), "Departure Board", font= ImageFont.truetype("%s/Bold.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),20), align="center")
-            draw.multiline_text((45, 35), "Version : 1.1.NR -  By Jonathan Foot", font=ImageFont.truetype("%s/Skinny.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
+            draw.multiline_text((45, 35), "Version : 1.2.NR -  By Jonathan Foot", font=ImageFont.truetype("%s/Skinny.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
         time.sleep(30) #Wait such a long time to allow the device to startup and connect to a WIFI source first.
 
 
