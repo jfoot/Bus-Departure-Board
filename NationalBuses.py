@@ -73,6 +73,8 @@ requiredNamed = parser.add_argument_group('required named arguments')
 requiredNamed.add_argument("-a","--APIID", help="The API ID code for the Transport API, get your own from: https://developer.transportapi.com/", type=str,required=True)
 requiredNamed.add_argument("-k","--APIKey", help="The API Key code for the Transport API, get your own from: https://developer.transportapi.com/", type=str,required=True)
 requiredNamed.add_argument("-s","--StopID", help="The Naptan Code for the specific bus stop you wish to display.", type=str,required=True)
+requiredNamed.add_argument("-b","--NextBus", choices=['yes','no'],default='no', help="Some regions (mainly any region outside London) need the NextBus API to get live data, you are however limited to only 100 API calls per day (around 1.5hrs on normal request limit settings). Once you have exceeded this limit the display cannot get any more data. Instead we recommend only getting scheduled arrival times, not using the NextBus API for full *day usage. *Assuming Energy saving mode is enabled.", type=str,required=True)
+
 Args = parser.parse_args()
 
 ## Defines all the programs "global" variables 
@@ -88,6 +90,9 @@ Dest = {"0":"Central London"}
 if Args.LargeLineName and Args.ShowIndex:
 	print "You can not have both '--ExtraLargeLineName' and '--ShowIndex' turned on at the same time."
 	sys.exit()
+
+if Args.NextBus == 'yes':
+	print "Warning : Any region covered by the NextBus API has a limit of 100 API calls per day, which will not last you a full day of usage."
 
 ###
 # Below contains the class which is used to reperesent one instance of a service record. It is also responsible for getting the information from the Transport API.
@@ -216,7 +221,7 @@ class LiveTime(object):
 		services = []
 		
 		try:
-			tempServices = json.loads(urllib2.urlopen("https://transportapi.com/v3/uk/bus/stop/%s/live.json?app_id=%s&app_key=%s&group=no&limit=9&nextbuses=yes" %  (Args.StopID, Args.APIID, Args.APIKey)).read())
+			tempServices = json.loads(urllib2.urlopen("https://transportapi.com/v3/uk/bus/stop/%s/live.json?app_id=%s&app_key=%s&group=no&limit=%s&nextbuses=%s" %  (Args.StopID, Args.APIID, Args.APIKey, max(3,Args.NumberOfCards),Args.NextBus)).read())
 			for service in tempServices['departures']['all']:
 				# If not in excluded services list, convert custom API object to LiveTime object and add to list.
 				if str(service['line']) not in Args.ExcludeServices:
@@ -712,7 +717,7 @@ def Splash():
 	if Args.SplashScreen:
 		with canvas(device) as draw:
 			draw.multiline_text((64, 10), "Departure Board", font= ImageFont.truetype("%s/Bold.ttf"  % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),20), align="center")
-			draw.multiline_text((45, 35), "Version : 1.3.OT -  By Jonathan Foot", font=ImageFont.truetype("%s/Skinny.ttf"  % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
+			draw.multiline_text((45, 35), "Version : 1.4.OT -  By Jonathan Foot", font=ImageFont.truetype("%s/Skinny.ttf"  % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
 		time.sleep(30) #Wait such a long time to allow the device to startup and connect to a WIFI source first.
 
 try:
