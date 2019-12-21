@@ -107,7 +107,7 @@ class LiveTime(object):
 		self.ExptArrival = str(Data['expectedArrival'])
 		self.DisplayTime = self.GetDisplayTime()
 		self.ID =  str(Data['vehicleId'])
-		self.Via = ""
+		self.Via = "This is a %d line train, to %d" % (str(Data['lineName']), str(Data['destinationName']))
 
 	
 	#Returns the value to display the time on the board.
@@ -120,7 +120,7 @@ class LiveTime(object):
 		elif Diff >=15 :
 			return ' ' + datetime.strptime(self.ExptArrival, '%Y-%m-%dT%H:%M:%SZ').strftime("%H:%M" if (Args.TimeFormat==24) else  "%I:%M")
 		else:
-			return  ' %d min' % Diff	
+			return  ' %d mins' % Diff	
 
 
 	# Returns true or false dependent upon if the last time an API data call was made was over the request limit; to prevent spamming the API feed.
