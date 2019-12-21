@@ -54,7 +54,7 @@ parser.add_argument("-e","--EnergySaverMode", help="To save screen from burn in 
 parser.add_argument("-i","--InactiveHours", help="The period of time for which the display will go into 'Energy Saving Mode' if turned on; default is '23:00-07:00'", type=check_time,default="23:00-07:00")
 parser.add_argument("-u","--UpdateDays", help="The number of days for which the Pi will wait before rebooting and checking for a new update again during your energy saving period; default 3 days.", type=check_positive, default=3)
 parser.add_argument("-x","--ExcludeServices", default="", help="List any services you do not wish to view. Make sure to capitalise correctly and simply put a single space between each; default is nothing, ie show every service.",  nargs='*')
-parser.add_argument('--ShowIndex', dest='ShowIndex', action='store_true',help="Do you wish to see index position for each service due to arrive.")
+parser.add_argument('--ShowIndex', dest='ShowIndex', action='store_true',help="Do you wish to see index position for each service due to arrive.",default=True)
 parser.add_argument("--ReducedAnimations", help="If you wish to stop the Via animation and cycle faster through the services use this tag to turn the animation off.", dest='ReducedAnimations', action='store_true')
 parser.add_argument("--UnfixNextToArrive",dest='FixToArrive', action='store_false', help="Keep the bus sonnest to next arrive at the very top of the display until it has left; by default true")
 parser.add_argument("--HideUnknownVias", help="If the API does not report any known via route a placeholder of 'Via Central Reading' is used. If you wish to stop the animation for unknowns use this tag.", dest='HideUnknownVias', action='store_true')
@@ -82,10 +82,10 @@ GenericVia = "Via Central Reading"
 # Used to create a blank object, needed in start-up or when there are less than 3 services currently scheduled. 
 class LiveTimeStud():
 	def __init__(self):
-		self.ServiceNumber = " "
+		#self.ServiceNumber = " "
 		self.Destination = " "
 		self.DisplayTime = " "
-		self.SchArrival = " "
+		#self.SchArrival = " "
 		self.ExptArrival = " "
 		self.Via = " "
 		self.ID =  "0"
@@ -101,32 +101,27 @@ class LiveTime(object):
 	
 	# * Change this method to implement your own API *
 	def __init__(self, Data, Index):
-		self.ServiceNumber = "%s.%s" % (Index + 1, str(Data['towards'])) if Args.ShowIndex else str(Data['towards'])
-		self.Destination = str(Data['towards'])
-
-		self.SchArrival = str(Data['expectedArrival'])
-
-
+		#self.ServiceNumber = "%s %s" % (Index + 1, str(Data['towards'])) if Args.ShowIndex else str(Data['towards'])
+		self.Destination =  "%s %s" % (Index + 1, str(Data['towards'])) if Args.ShowIndex else str(Data['towards'])
+		#self.SchArrival = str(Data['expectedArrival'])
 		self.ExptArrival = str(Data['expectedArrival'])
-		self.DisplayTime = ""
+		self.DisplayTime = self.GetDisplayTime()
 		self.ID =  str(Data['vehicleId'])
 		self.Via = ""
+
 	
 	#Returns the value to display the time on the board.
-	#def GetDisplayTime(self):
+	def GetDisplayTime(self):
 		# Last time the display screen was updated to reflect the new time of arrival.
-	#	self.LastStaticUpdate = datetime.now()
-		# If unknown predicted time use scheduled (time tabled) time.
-	#	if self.ExptArrival == "":
-	#		return " " + datetime.strptime(self.SchArrival, '%Y-%m-%dT%H:%M:%S').strftime("%H:%M" if (Args.TimeFormat==24) else  "%I:%M")
-	#	else:
-	#		Diff =  (datetime.strptime(self.ExptArrival, '%Y-%m-%dT%H:%M:%S') - datetime.now()).total_seconds() / 60
-	#		if Diff <= 2:
-	#			return ' Due'
-			# If more than 15min away show the time as 'XX:XX', else show it as a count down in 'X min'
-	#		if Diff >=15 :
-	#			return ' ' + datetime.strptime(self.SchArrival, '%Y-%m-%dT%H:%M:%S').strftime("%H:%M" if (Args.TimeFormat==24) else  "%I:%M")
-	#		return  ' %d min' % Diff
+		self.LastStaticUpdate = datetime.now()
+		Diff =  (datetime.strptime(self.ExptArrival, '%Y-%m-%dT%H:%M:%SZ') - datetime.now()).total_seconds() / 60
+		if Diff <= 1:
+			return ' Due'
+		elif Diff >=15 :
+			return ' ' + datetime.strptime(self.ExptArrival, '%Y-%m-%dT%H:%M:%SZ').strftime("%H:%M" if (Args.TimeFormat==24) else  "%I:%M")
+		else:
+			return  ' %d min' % Diff	
+
 
 	# Returns true or false dependent upon if the last time an API data call was made was over the request limit; to prevent spamming the API feed.
 	@staticmethod
@@ -146,6 +141,7 @@ class LiveTime(object):
 
 		try:
 			tempServices = json.loads(urllib2.urlopen("https://api.tfl.gov.uk/StopPoint/%s/Arrivals?app_id=%s&app_key=%s" %  (Args.StationID, Args.APIID, Args.APIKey)).read())
+			#print "https://api.tfl.gov.uk/StopPoint/%s/Arrivals?app_id=%s&app_key=%s" %  (Args.StationID, Args.APIID, Args.APIKey)
 			for service in tempServices:
 				# If not in excluded services list, convert custom API object to LiveTime object and add to list.
 				if str(service['lineName']) not in Args.ExcludeServices:
@@ -193,12 +189,10 @@ class StaticTextImage():
 		displayTimeTempPrevious = TextImage(device, previous_service.DisplayTime)
 		displayTimeTemp = TextImage(device, service.DisplayTime)
 
-		draw.text((0, 16), service.ServiceNumber, font=BasicFont, fill="white")
 		draw.text((device.width - displayTimeTemp.width, 16), service.DisplayTime, font=BasicFont, fill="white")
-		draw.text((45 if Args.ShowIndex else 30, 16), service.Destination, font=BasicFont, fill="white")	
+		draw.text((0,displayTimeTemp.height), service.Destination, font=BasicFont, fill="white")	
 
-		draw.text((45 if Args.ShowIndex else 30, 0), previous_service.Destination, font=BasicFont, fill="white")	
-		draw.text((0, 0), previous_service.ServiceNumber, font=BasicFont, fill="white")
+		draw.text((0,0), previous_service.Destination, font=BasicFont, fill="white")	
 		draw.text((device.width - displayTimeTempPrevious.width, 0), previous_service.DisplayTime, font=BasicFont, fill="white")
 	
 		self.width = device.width 
@@ -308,8 +302,7 @@ class ScrollTime():
 		displayTimeTemp = TextImage(device, service.DisplayTime)
 		IDestinationTemp  = TextImageComplex(device, service.Destination,service.Via, displayTimeTemp.width)
 
-		self.IDestination =  ComposableImage(IDestinationTemp.image.crop((0,0,IDestinationTemp.width + 10,16)), position=(45 if Args.ShowIndex else 30, 16 * self.position))
-		self.IServiceNumber =  ComposableImage(TextImage(device, service.ServiceNumber).image.crop((0,0,45 if Args.ShowIndex else 30,16)), position=(0, 16 * self.position))
+		self.IDestination =  ComposableImage(IDestinationTemp.image.crop((0,0,IDestinationTemp.width + 10,16)), position=(0, 16 * self.position))
 		self.IDisplayTime =  ComposableImage(displayTimeTemp.image, position=(device.width - displayTimeTemp.width, 16 * self.position))
 
 	# Called when you have new/updated information from an API call and want to update the objects predicted arrival time.
@@ -337,14 +330,14 @@ class ScrollTime():
 		self.image_composition.add_image(self.IStaticOld)
 		self.image_composition.add_image(self.rectangle)
 		self.image_composition.remove_image(self.IDestination)
-		self.image_composition.remove_image(self.IServiceNumber)
+		
 		self.image_composition.remove_image(self.IDisplayTime)
 		if self.partner != None and self.partner.CurrentService.ID != "0":
 			self.partner.refresh()
 			
 		self.image_composition.refresh()
 		del self.IDestination
-		del self.IServiceNumber
+		
 		del self.IDisplayTime
 
 		self.generateCard(newService)
@@ -362,7 +355,6 @@ class ScrollTime():
 			pass
 		try:
 			self.image_composition.remove_image(self.IDestination)
-			self.image_composition.remove_image(self.IServiceNumber)
 			self.image_composition.remove_image(self.IDisplayTime)
 		except:
 			pass  
@@ -398,7 +390,6 @@ class ScrollTime():
 			del self.IStaticOld
 
 			self.image_composition.add_image(self.IDestination)
-			self.image_composition.add_image(self.IServiceNumber)
 			self.image_composition.add_image(self.IDisplayTime)		
 			self.render()
 			self.synchroniser.ready(self)
@@ -473,10 +464,8 @@ class ScrollTime():
 	# Used to reset the image on the display.
 	def refresh(self):
 		self.image_composition.remove_image(self.IDestination)
-		self.image_composition.remove_image(self.IServiceNumber)
 		self.image_composition.remove_image(self.IDisplayTime)
 		self.image_composition.add_image(self.IDestination)
-		self.image_composition.add_image(self.IServiceNumber)
 		self.image_composition.add_image(self.IDisplayTime)
 
 	# Used to add a partner; this is the row below it self. Used when needed to tell partner to redraw itself
@@ -615,7 +604,7 @@ StartUpDate = datetime.now().date()
 # Draws the clock and tells the rest of the display next frame wanted.
 def display():
 	board.tick()
-	msgTime = str(datetime.now().strftime("%H:%M" if (Args.TimeFormat==24) else "%I:%M"))	
+	msgTime = str(datetime.now().strftime("%H:%M:%S" if (Args.TimeFormat==24) else "%I:%M:%S"))	
 	with canvas(device, background=image_composition()) as draw:
 		image_composition.refresh()
 		draw.multiline_text(((device.width - draw.textsize(msgTime, FontTime)[0])/2, device.height-16), msgTime, font=FontTime, align="center")
