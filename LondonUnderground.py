@@ -55,7 +55,7 @@ parser.add_argument("-i","--InactiveHours", help="The period of time for which t
 parser.add_argument("-u","--UpdateDays", help="The number of days for which the Pi will wait before rebooting and checking for a new update again during your energy saving period; default 3 days.", type=check_positive, default=3)
 parser.add_argument("-x","--ExcludeServices", default="", help="List any services you do not wish to view. Make sure to capitalise correctly and simply put a single space between each; default is nothing, ie show every service.",  nargs='*')
 parser.add_argument('--ShowIndex', dest='ShowIndex', action='store_true',help="Do you wish to see index position for each service due to arrive.",default=True)
-parser.add_argument("--ReducedAnimations", help="If you wish to stop the Via animation and cycle faster through the services use this tag to turn the animation off.", dest='ReducedAnimations', action='store_true')
+parser.add_argument("--IncreasedAnimations", help="If you wish to stop the Via animation and cycle faster through the services use this tag to turn the animation off.", dest='ReducedAnimations', action='store_false', default=True)
 parser.add_argument("--UnfixNextToArrive",dest='FixToArrive', action='store_false', help="Keep the bus sonnest to next arrive at the very top of the display until it has left; by default true")
 parser.add_argument("--HideUnknownVias", help="If the API does not report any known via route a placeholder of 'Via Central Reading' is used. If you wish to stop the animation for unknowns use this tag.", dest='HideUnknownVias', action='store_true')
 parser.add_argument('--no-splashscreen', dest='SplashScreen', action='store_false',help="Do you wish to see the splash screen at start up; recommended and on by default.")
@@ -107,7 +107,7 @@ class LiveTime(object):
 		self.ExptArrival = str(Data['expectedArrival'])
 		self.DisplayTime = self.GetDisplayTime()
 		self.ID =  str(Data['vehicleId'])
-		self.Via = "This is a %d line train, to %d" % (str(Data['lineName']), str(Data['destinationName']))
+		self.Via = "This is a %s line train, to %s" % (str(Data['lineName']), str(Data['destinationName'] if 'destinationName' in Data else str(Data['towards'])))
 
 	
 	#Returns the value to display the time on the board.
@@ -172,7 +172,7 @@ class TextImage():
 # Used to create the destination and via board.
 class TextImageComplex():
 	def __init__(self, device, destination, via, startOffset):
-		self.image = Image.new(device.mode, (device.width*2, 16))
+		self.image = Image.new(device.mode, (device.width*10, 16))
 		draw = ImageDraw.Draw(self.image)
 		draw.text((0, 0), destination, font=BasicFont, fill="white")
 		draw.text((device.width - startOffset, 0), via, font=BasicFont, fill="white")
