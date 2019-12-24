@@ -53,12 +53,15 @@ parser.add_argument("-z","--StaticUpdateLimit", help="Defines the amount of time
 parser.add_argument("-e","--EnergySaverMode", help="To save screen from burn in and prolong it's life it is recommend to have energy saving mode enabled. 'off' is default, between the hours set the screen will turn off. 'dim' will turn the screen brightness down, but not completely off. 'none' will do nothing and leave the screen on; this is not recommend, you can change your active hours instead.", type=str,choices=["none","dim","off"],default="off")
 parser.add_argument("-i","--InactiveHours", help="The period of time for which the display will go into 'Energy Saving Mode' if turned on; default is '23:00-07:00'", type=check_time,default="23:00-07:00")
 parser.add_argument("-u","--UpdateDays", help="The number of days for which the Pi will wait before rebooting and checking for a new update again during your energy saving period; default 3 days.", type=check_positive, default=3)
-parser.add_argument("-x","--ExcludeServices", default="", help="List any services you do not wish to view. Make sure to capitalise correctly and simply put a single space between each; default is nothing, ie show every service.",  nargs='*')
+parser.add_argument("-x","--ExcludeLines", default="", help="List any Lines you do not wish to view. Make sure to capitalise correctly and simply put a single space between each, for example 'Bakerloo Circle'; default is nothing, ie show every service.",  nargs='*')
+parser.add_argument("-p","--Direction", help="For stations which have inbound and outbound services, do you wish to view both directions or only one?; default is both directions", choices=['inbound','outbound','both'],default='both')
+
 parser.add_argument('--ShowIndex', dest='ShowIndex', action='store_true',help="Do you wish to see index position for each service due to arrive.",default=True)
 parser.add_argument("--IncreasedAnimations", help="If you wish to stop the Via animation and cycle faster through the services use this tag to turn the animation off.", dest='ReducedAnimations', action='store_false', default=True)
 parser.add_argument("--UnfixNextToArrive",dest='FixToArrive', action='store_false', help="Keep the bus sonnest to next arrive at the very top of the display until it has left; by default true")
 parser.add_argument("--HideUnknownVias", help="If the API does not report any known via route a placeholder of 'Via Central Reading' is used. If you wish to stop the animation for unknowns use this tag.", dest='HideUnknownVias', action='store_true')
 parser.add_argument('--no-splashscreen', dest='SplashScreen', action='store_false',help="Do you wish to see the splash screen at start up; recommended and on by default.")
+parser.add_argument('--no-warning', dest='warning', action='store_false',help="Do you want the warning 'STAND BACK TRAIN APPROACHING' message to flash; on by default.")
 parser.add_argument("--Display", default="ssd1322", choices=['ssd1322','pygame','capture','gifanim'], help="Used for development purposes, allows you to switch from a physical display to a virtual emulated one; default 'ssd1322'")
 parser.add_argument("--max-frames", default=60,dest='maxframes', type=check_positive, help="Used only when using gifanim emulator, sets how long the gif should be.")
 
@@ -100,13 +103,14 @@ class LiveTime(object):
 	LastUpdate = datetime.now()
 	
 	# * Change this method to implement your own API *
-	def __init__(self, Data, Index):
+	def __init__(self, Data):
 		#self.ServiceNumber = "%s %s" % (Index + 1, str(Data['towards'])) if Args.ShowIndex else str(Data['towards'])
-		self.Destination =  "%s %s" % (Index + 1, str(Data['towards'])) if Args.ShowIndex else str(Data['towards'])
+		#self.Destination =  "%s %s" % (Index + 1, str(Data['towards'])) if Args.ShowIndex else str(Data['towards'])
+		self.Destination =  str(Data['towards'])
 		#self.SchArrival = str(Data['expectedArrival'])
 		self.ExptArrival = str(Data['expectedArrival'])
 		self.DisplayTime = self.GetDisplayTime()
-		self.ID =  str(Data['vehicleId'])
+		self.ID =  str(Data['id'])
 		self.Via = "This is a %s line train, to %s" % (str(Data['lineName']), str(Data['destinationName'] if 'destinationName' in Data else str(Data['towards'])))
 
 	
@@ -114,14 +118,16 @@ class LiveTime(object):
 	def GetDisplayTime(self):
 		# Last time the display screen was updated to reflect the new time of arrival.
 		self.LastStaticUpdate = datetime.now()
-		Diff =  (datetime.strptime(self.ExptArrival, '%Y-%m-%dT%H:%M:%SZ') - datetime.now()).total_seconds() / 60
-		if Diff <= 1:
+		
+		if self.TimeInMin() <= 1:
 			return ' Due'
-		elif Diff >=15 :
+		elif self.TimeInMin() >=15 :
 			return ' ' + datetime.strptime(self.ExptArrival, '%Y-%m-%dT%H:%M:%SZ').strftime("%H:%M" if (Args.TimeFormat==24) else  "%I:%M")
 		else:
-			return  ' %d mins' % Diff	
+			return  ' %d mins' % self.TimeInMin()	
 
+	def TimeInMin(self):
+		return (datetime.strptime(self.ExptArrival, '%Y-%m-%dT%H:%M:%SZ') - datetime.now()).total_seconds() / 60
 
 	# Returns true or false dependent upon if the last time an API data call was made was over the request limit; to prevent spamming the API feed.
 	@staticmethod
@@ -141,11 +147,21 @@ class LiveTime(object):
 
 		try:
 			tempServices = json.loads(urllib2.urlopen("https://api.tfl.gov.uk/StopPoint/%s/Arrivals?app_id=%s&app_key=%s" %  (Args.StationID, Args.APIID, Args.APIKey)).read())
-			#print "https://api.tfl.gov.uk/StopPoint/%s/Arrivals?app_id=%s&app_key=%s" %  (Args.StationID, Args.APIID, Args.APIKey)
+			# print "https://api.tfl.gov.uk/StopPoint/%s/Arrivals?app_id=%s&app_key=%s" %  (Args.StationID, Args.APIID, Args.APIKey)
 			for service in tempServices:
 				# If not in excluded services list, convert custom API object to LiveTime object and add to list.
-				if str(service['lineName']) not in Args.ExcludeServices:
-					services.append(LiveTime(service, len(services)))
+				if str(service['lineName']) not in Args.ExcludeLines:
+					if Args.Direction == 'both' or ("direction" in service and Args.Direction == str(service["direction"])):
+						services.append(LiveTime(service))
+							
+			services.sort(key=lambda x: x.TimeInMin())	
+
+			if Args.ShowIndex:
+				x = 1
+				for service in services:
+					service.Destination = str(x) + ". " + service.Destination
+					x = x + 1
+	
 			return services
 		except Exception as e:
 			print(str(e))
@@ -265,14 +281,17 @@ class ScrollTime():
 	WAIT_STUD = 7
 	STUD_SCROLL = 8
 	STUD_END = 9
+	TRAIN_APPROACHING = 10
 
 	STUD = -1
 	
+	Alternator = 0
+
+
 	def __init__(self, image_composition, service, previous_service, scroll_delay, synchroniser, device, position, controller):
 		self.speed = Args.Speed
 		self.position = position
 		self.Controller = controller
-		
 		self.image_composition = image_composition
 		self.rectangle = ComposableImage(RectangleCover(device).image, position=(0,16 * position + 16))
 		self.CurrentService = service
@@ -289,7 +308,9 @@ class ScrollTime():
 		self.image_x_pos = 0
 		self.device = device
 		self.partner = None
-			
+		self.TrainApproaching =  ComposableImage(TextImage(device, "* STAND BACK TRAIN APPROACHING *").image, position=(0, 16 * self.position))
+		self.Blank =  ComposableImage(RectangleCover(device).image, position=(0,16 * position + 16))
+		
 		self.delay = scroll_delay
 		self.ticks = 0
 		self.state = self.OPENING_SCROLL if service.ID != 0 else self.STUD
@@ -304,9 +325,11 @@ class ScrollTime():
 
 		self.IDestination =  ComposableImage(IDestinationTemp.image.crop((0,0,IDestinationTemp.width + 10,16)), position=(0, 16 * self.position))
 		self.IDisplayTime =  ComposableImage(displayTimeTemp.image, position=(device.width - displayTimeTemp.width, 16 * self.position))
-
+		
+		
 	# Called when you have new/updated information from an API call and want to update the objects predicted arrival time.
 	def updateCard(self, newService, device):
+		print "Updating"
 		self.state = self.SCROLL_DECIDER
 		self.synchroniser.ready(self)
 		self.image_composition.remove_image(self.IDisplayTime)
@@ -314,16 +337,22 @@ class ScrollTime():
 		displayTimeTemp = TextImage(device, newService.DisplayTime)
 		self.IDisplayTime = ComposableImage(displayTimeTemp.image, position=(device.width - displayTimeTemp.width, 16 * self.position))
 	
+		self.checkForTrainAppraoching()
+
 		self.image_composition.add_image(self.IDisplayTime)
 		self.image_composition.refresh()
 
 	# Called when you want to change the row from one service to another.
 	def changeCard(self, newService, device):
+		print "Changing"
 		if newService.ID == "0" and self.CurrentService.ID == "0":
 			self.state = self.STUD
 			self.synchroniser.ready(self)
 			return 
 			
+		if self.position ==  1 and self.CurrentService.TimeInMin() > 1:
+			self.Bottom.SetNotTrainApproaching()
+		
 		self.synchroniser.busy(self)
 		self.IStaticOld =  ComposableImage(StaticTextImage(device,newService, self.CurrentService).image, position=(0, (16 * self.position)))
 	
@@ -343,9 +372,15 @@ class ScrollTime():
 		self.generateCard(newService)
 		self.CurrentService = newService
 		self.max_pos = self.IDestination.width
-		
+
+		self.checkForTrainAppraoching()
+
 		self.state = self.WAIT_STUD if (newService.ID == "0") else self.WAIT_OPENING
-		
+	
+	def checkForTrainAppraoching(self):
+		if Args.warning and self.CurrentService.TimeInMin() <= 1 and self.position == 0:
+			self.Bottom.SetTrainApproaching()
+	
 	# Used when you want to delete the row/card/object.
 	def delete(self):
 		try:
@@ -400,6 +435,7 @@ class ScrollTime():
 				if not self.is_waiting():
 					if self.synchroniser.is_synchronised():
 						self.synchroniser.busy(self)
+						self.Alternator = 0
 						if (Args.HideUnknownVias and self.CurrentService.Via == GenericVia) or Args.ReducedAnimations:
 							self.state = self.WAIT_SYNC
 						elif self.CurrentService.ID == "0":
@@ -427,6 +463,21 @@ class ScrollTime():
 				if not self.is_waiting():
 					self.Controller.requestCardChange(self, self.position + 1)
 
+		elif self.state == self.TRAIN_APPROACHING:
+			if self.Alternator == 0:
+				self.image_composition.add_image(self.TrainApproaching)
+				
+			self.Alternator = self.Alternator + 1
+			if self.Alternator % 9 == 0:
+				if self.Alternator % 18 == 0:
+					self.image_composition.add_image(self.TrainApproaching)
+					self.image_composition.remove_image(self.Blank)
+				else:
+					self.image_composition.add_image(self.Blank)
+					self.image_composition.remove_image(self.TrainApproaching)
+				self.image_composition.refresh()
+
+
 
 		elif self.state == self.WAIT_STUD:
 			if not self.is_waiting():
@@ -452,7 +503,21 @@ class ScrollTime():
 		elif self.state == self.STUD:
 			if not self.is_waiting():
 				self.Controller.requestCardChange(self, self.position + 1)
-			
+
+	def SetTrainApproaching(self):
+		self.state = self.TRAIN_APPROACHING	
+	
+	def SetNotTrainApproaching(self):
+		if self.state == self.TRAIN_APPROACHING:
+			print "Not Approaching"
+			if self.Alternator % 18 < 9:
+				self.image_composition.remove_image(self.TrainApproaching)
+			else:
+				self.image_composition.remove_image(self.Blank)
+				
+			self.state = self.SCROLL_DECIDER
+			self.Alternator = 0
+		
 		
 	# Sets the image offest for the animation, telling it how to render.
 	def render(self):
@@ -463,15 +528,19 @@ class ScrollTime():
 	
 	# Used to reset the image on the display.
 	def refresh(self):
-		self.image_composition.remove_image(self.IDestination)
-		self.image_composition.remove_image(self.IDisplayTime)
-		self.image_composition.add_image(self.IDestination)
-		self.image_composition.add_image(self.IDisplayTime)
+		if self.state != self.TRAIN_APPROACHING:
+			self.image_composition.remove_image(self.IDestination)
+			self.image_composition.remove_image(self.IDisplayTime)
+			self.image_composition.add_image(self.IDestination)
+			self.image_composition.add_image(self.IDisplayTime)
 
 	# Used to add a partner; this is the row below it self. Used when needed to tell partner to redraw itself
 	# on top of the row above it (layering the text boxes correctly)
 	def addPartner(self, partner):
 		self.partner = partner
+		
+	def addBottom(self, bottom):
+		self.Bottom = bottom
 
 	# Used to add a time delay between animations.
 	def is_waiting(self):
@@ -500,13 +569,22 @@ class boardFixed():
 		self.NoServices = ComposableImage(NoServiceTemp.image, position=(device.width/2- NoServiceTemp.width/2,device.height/2-NoServiceTemp.height/2))
 
 		self.top.addPartner(self.middel)
+		self.top.addBottom(self.bottom)
+		
 		self.middel.addPartner(self.bottom)
+		self.middel.addBottom(self.bottom)
+		
+		self.bottom.addBottom(self.bottom)
+	
+	
 	
 	# Set up the cards for the initial starting animation.
 	def setInitalCards(self):
+
 		self.top = ScrollTime(image_composition, len(self.Services) >= 1 and self.Services[0] or LiveTimeStud(),LiveTimeStud(), self.scroll_delay, self.synchroniser, device, 0, self)
 		self.middel = ScrollTime(image_composition, len(self.Services) >= 2 and self.Services[1] or LiveTimeStud(),LiveTimeStud(), self.scroll_delay, self.synchroniser, device, 1,self)
 		self.bottom = ScrollTime(image_composition, len(self.Services) >= 3 and self.Services[2] or LiveTimeStud(),LiveTimeStud(), self.scroll_delay, self.synchroniser, device, 2, self)
+		
 		self.x = len(self.Services) < 3 and len(self.Services) or 3
 
 	# Called upon every time a new frame is needed.
