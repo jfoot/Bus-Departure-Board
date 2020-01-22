@@ -626,7 +626,7 @@ def Splash():
 		with canvas(device) as draw:
 			draw.multiline_text((64, 10), "Departure Board", font= ImageFont.truetype("%s/resources/Bold.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),20), align="center")
 			draw.multiline_text((45, 35), "Version : 1.4.EX -  By Jonathan Foot", font=ImageFont.truetype("%s/resources/Skinny.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
-		time.sleep(30) #Wait such a long time to allow the device to startup and connect to a WIFI source first.
+		time.sleep(5) #Wait such a long time to allow the device to startup and connect to a WIFI source first.
 
 
 try:
