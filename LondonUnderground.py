@@ -2,7 +2,6 @@
 # Project Website : https://departureboard.jonathanfoot.com
 # Documentation   : https://jonathanfoot.com/Projects/DepartureBoard
 # Description     :  This program allows you to display a live London Underground departure board for any Tube station.
-# CURRENTLY IN DEVELOPMENT - NOT IN A WORKING STATE
 
 import json
 import urllib2
@@ -42,12 +41,12 @@ def check_time(value):
 	return [datetime.strptime(value.split("-")[0], '%H:%M').time(),  datetime.strptime(value.split("-")[1], '%H:%M').time()]
 
 ## Defines all optional paramaters
-parser = argparse.ArgumentParser(description='Reading Buses Live Departure Board, to run the program you will need to pass it all of the required paramters and you may wish to pass any optional paramters.')
+parser = argparse.ArgumentParser(description='London Underground Live Departure Board, to run the program you will need to pass it all of the required paramters and you may wish to pass any optional paramters.')
 parser.add_argument("-t","--TimeFormat", help="Do you wish to use 24hr or 12hr time format; default is 24hr.", type=int,choices=[12,24],default=24)
 parser.add_argument("-v","--Speed", help="What speed do you want the text to scroll at on the display; default is 3, must be greater than 0.", type=check_positive,default=3)
 parser.add_argument("-d","--Delay", help="How long the display will pause before starting the next animation; default is 30, must be greater than 0.", type=check_positive,default=30)
 parser.add_argument("-r","--RecoveryTime", help="How long the display will wait before attempting to get new data again after previously failing; default is 100, must be greater than 0.", type=check_positive,default=100)
-parser.add_argument("-n","--NumberOfCards", help="The maximum number of cards you will see before forcing a new data retrieval, a limit is recommend to prevent cycling through data which may become out of data or going too far into scheduled buses; default is 9, must be greater than 0.", type=check_positive,default=9)
+parser.add_argument("-n","--NumberOfCards", help="The maximum number of cards you will see before forcing a new data retrieval, a limit is recommend to prevent cycling through data which may become out of data or going too far into scheduled trains; default is 9, must be greater than 0.", type=check_positive,default=9)
 parser.add_argument("-y","--Rotation", help="Defines which way up the screen is rendered; default is 0", type=int,default=0,choices=[0,2])
 parser.add_argument("-l","--RequestLimit", help="Defines the minium amount of time the display must wait before making a new data request; default is 55(seconds)", type=check_positive,default=55)
 parser.add_argument("-z","--StaticUpdateLimit", help="Defines the amount of time the display will wait before updating the expected arrival time (based upon it's last known predicted arrival time); default is  15(seconds), this should be lower than your 'RequestLimit'", type=check_positive,default=15)
@@ -55,23 +54,22 @@ parser.add_argument("-e","--EnergySaverMode", help="To save screen from burn in 
 parser.add_argument("-i","--InactiveHours", help="The period of time for which the display will go into 'Energy Saving Mode' if turned on; default is '23:00-07:00'", type=check_time,default="23:00-07:00")
 parser.add_argument("-u","--UpdateDays", help="The number of days for which the Pi will wait before rebooting and checking for a new update again during your energy saving period; default 3 days.", type=check_positive, default=3)
 parser.add_argument("-x","--ExcludeLines", default="", help="List any Lines you do not wish to view. Make sure to capitalise correctly and simply put a single space between each, for example 'Bakerloo Circle'; default is nothing, ie show every service.",  nargs='*')
-parser.add_argument("-p","--Direction", help="For stations which have inbound and outbound services, do you wish to view both directions or only one?; default is both directions", choices=['inbound','outbound','both'],default='both')
-
+parser.add_argument("-p","--Direction", help="For stations which have inbound and outbound services, do you wish to view both directions or only one?; default is inbound directions", choices=['inbound','outbound','both'],default='inbound')
+parser.add_argument("-w","--WarningTime", help="How soon before the warning message will be displayed about a trains arrival in min; 0.2 by default. i.e when the train is due to arrive in 0.2min start warning of an arriving train.", type=check_positive, default=0.2)
 parser.add_argument('--ShowIndex', dest='ShowIndex', action='store_true',help="Do you wish to see index position for each service due to arrive.",default=True)
 parser.add_argument("--IncreasedAnimations", help="If you wish to stop the Via animation and cycle faster through the services use this tag to turn the animation off.", dest='ReducedAnimations', action='store_false', default=True)
-parser.add_argument("--UnfixNextToArrive",dest='FixToArrive', action='store_false', help="Keep the bus sonnest to next arrive at the very top of the display until it has left; by default true")
+parser.add_argument("--FixNextToArrive",dest='FixToArrive', action='store_true', default=False, help="Keep the train next arrive at the very top of the display until it has left; by default false")
 parser.add_argument("--HideUnknownVias", help="If the API does not report any known via route a placeholder of 'Via Central Reading' is used. If you wish to stop the animation for unknowns use this tag.", dest='HideUnknownVias', action='store_true')
 parser.add_argument('--no-splashscreen', dest='SplashScreen', action='store_false',help="Do you wish to see the splash screen at start up; recommended and on by default.")
-parser.add_argument('--no-warning', dest='warning', action='store_false',help="Do you want the warning 'STAND BACK TRAIN APPROACHING' message to flash; on by default.")
+parser.add_argument('--no-warning', dest='warning', default=False, action='store_true',help="Do you want the warning 'STAND BACK TRAIN APPROACHING' message to flash; on by default.")
 parser.add_argument("--Display", default="ssd1322", choices=['ssd1322','pygame','capture','gifanim'], help="Used for development purposes, allows you to switch from a physical display to a virtual emulated one; default 'ssd1322'")
 parser.add_argument("--max-frames", default=60,dest='maxframes', type=check_positive, help="Used only when using gifanim emulator, sets how long the gif should be.")
 
 # Defines all required paramaters
 requiredNamed = parser.add_argument_group('required named arguments')
-requiredNamed.add_argument("-k","--APIKey", help="", type=str,required=True)
-requiredNamed.add_argument("-a","--APIID", help="FILL ME IN", type=str,required=True)
-
-requiredNamed.add_argument("-s","--StationID", help="The Naptan Code for the specific bus stop you wish to display.", type=str,required=True)
+requiredNamed.add_argument("-k","--APIKey", help="Your Transport for London API Key, you can get your own at: https://api-portal.tfl.gov.uk/login", type=str,required=True)
+requiredNamed.add_argument("-a","--APIID", help="Your Transport for London App ID, you can get your own at: https://api-portal.tfl.gov.uk/login", type=str,required=True)
+requiredNamed.add_argument("-s","--StationID", help="The London Underground Code for the specific station you wish to display.", type=str,required=True)
 Args = parser.parse_args()
 
 ## Defines all the programs "global" variables 
@@ -81,15 +79,13 @@ BasicFont = ImageFont.truetype("%s/resources/lower.ttf" %(os.path.dirname(os.pat
 GenericVia = "Via Central Reading"
 
 ###
-# Below contains the class which is used to reperesent one instance of a service record. It is also responsible for getting the information from the Reading Buses API.
+# Below contains the class which is used to reperesent one instance of a service record. It is also responsible for getting the information from the Transport for London API.
 ###
 # Used to create a blank object, needed in start-up or when there are less than 3 services currently scheduled. 
 class LiveTimeStud():
 	def __init__(self):
-		#self.ServiceNumber = " "
 		self.Destination = " "
 		self.DisplayTime = " "
-		#self.SchArrival = " "
 		self.ExptArrival = " "
 		self.Via = " "
 		self.ID =  "0"
@@ -98,17 +94,14 @@ class LiveTimeStud():
 		return False
 		
 	
-# Used to get live data from the Reading Buses API and represent a specific services and it's details.
+# Used to get live data from the TfL API and represent a specific services and it's details.
 class LiveTime(object):
 	# The last time an API call was made to get new data.
 	LastUpdate = datetime.now()
 	
 	# * Change this method to implement your own API *
 	def __init__(self, Data):
-		#self.ServiceNumber = "%s %s" % (Index + 1, str(Data['towards'])) if Args.ShowIndex else str(Data['towards'])
-		#self.Destination =  "%s %s" % (Index + 1, str(Data['towards'])) if Args.ShowIndex else str(Data['towards'])
 		self.Destination =  str(Data['towards'])
-		#self.SchArrival = str(Data['expectedArrival'])
 		self.ExptArrival = str(Data['expectedArrival'])
 		self.DisplayTime = self.GetDisplayTime()
 		self.ID =  str(Data['id'])
@@ -119,7 +112,6 @@ class LiveTime(object):
 	def GetDisplayTime(self):
 		# Last time the display screen was updated to reflect the new time of arrival.
 		self.LastStaticUpdate = datetime.now()
-		
 		if self.TimeInMin() <= 1:
 			return ' Due'
 		elif self.TimeInMin() >=15 :
@@ -148,7 +140,6 @@ class LiveTime(object):
 
 		try:
 			tempServices = json.loads(urllib2.urlopen("https://api.tfl.gov.uk/StopPoint/%s/Arrivals?app_id=%s&app_key=%s" %  (Args.StationID, Args.APIID, Args.APIKey)).read())
-			# print "https://api.tfl.gov.uk/StopPoint/%s/Arrivals?app_id=%s&app_key=%s" %  (Args.StationID, Args.APIID, Args.APIKey)
 			for service in tempServices:
 				# If not in excluded services list, convert custom API object to LiveTime object and add to list.
 				if str(service['lineName']) not in Args.ExcludeLines:
@@ -267,7 +258,7 @@ class Synchroniser():
 
 
 ###
-## Below contains the class which represents a single row on the bus display, a LiveTime object contains all the information on a service and is then wrapped up in a ScrollTime Object
+## Below contains the class which represents a single row on the train display, a LiveTime object contains all the information on a service and is then wrapped up in a ScrollTime Object
 ## This object contains the state of the object, such as if it is in an animation and what should be displayed to the display.
 ###
 
@@ -330,7 +321,6 @@ class ScrollTime():
 		
 	# Called when you have new/updated information from an API call and want to update the objects predicted arrival time.
 	def updateCard(self, newService, device):
-		print "Updating"
 		self.state = self.SCROLL_DECIDER
 		self.synchroniser.ready(self)
 		self.image_composition.remove_image(self.IDisplayTime)
@@ -343,7 +333,6 @@ class ScrollTime():
 
 	# Called when you want to change the row from one service to another.
 	def changeCard(self, newService, device):
-		print "Changing"
 		if newService.ID == "0" and self.CurrentService.ID == "0":
 			self.state = self.STUD
 			self.synchroniser.ready(self)
@@ -457,16 +446,19 @@ class ScrollTime():
 
 		elif self.state == self.TRAIN_APPROACHING:
 			if self.Alternator == 0:
+				self.image_composition.remove_image(self.IDestination)
+				self.image_composition.remove_image(self.IDisplayTime)	
 				self.image_composition.add_image(self.TrainApproaching)
 				
 			self.Alternator = self.Alternator + 1
 			if self.Alternator % 9 == 0:
 				if self.Alternator % 18 == 0:
+					self.image_composition.remove_image(self.rectangle)
 					self.image_composition.add_image(self.TrainApproaching)
-					self.image_composition.remove_image(self.Blank)
 				else:
-					self.image_composition.add_image(self.Blank)
 					self.image_composition.remove_image(self.TrainApproaching)
+					self.image_composition.add_image(self.rectangle)
+					
 				self.image_composition.refresh()
 
 
@@ -500,12 +492,12 @@ class ScrollTime():
 	
 	def SetNotTrainApproaching(self):
 		if self.state == self.TRAIN_APPROACHING:
-			print "Not Approaching"
 			if self.Alternator % 18 < 9:
 				self.image_composition.remove_image(self.TrainApproaching)
 			else:
-				self.image_composition.remove_image(self.Blank)
-				
+				self.image_composition.remove_image(self.rectangle)
+			self.image_composition.add_image(self.IDestination)
+			self.image_composition.add_image(self.IDisplayTime)		
 			self.state = self.SCROLL_DECIDER
 			self.Alternator = 0
 		
@@ -524,6 +516,14 @@ class ScrollTime():
 			self.image_composition.remove_image(self.IDisplayTime)
 			self.image_composition.add_image(self.IDestination)
 			self.image_composition.add_image(self.IDisplayTime)
+		else:
+			if self.Alternator % 18 < 9:
+				self.image_composition.remove_image(self.TrainApproaching)
+				self.image_composition.add_image(self.TrainApproaching)
+			else:
+				self.image_composition.remove_image(self.rectangle)
+				self.image_composition.add_image(self.rectangle)
+
 
 	# Used to add a partner; this is the row below it self. Used when needed to tell partner to redraw itself
 	# on top of the row above it (layering the text boxes correctly)
@@ -624,8 +624,8 @@ class boardFixed():
 				else:
 					card.changeCard(self.Services[self.x % len(self.Services)],device)
 		
-		if Args.warning:
-			if self.Services[0].TimeInMin() <= 1:
+		if not Args.warning:
+			if self.Services[0].TimeInMin() <= Args.WarningTime:
 				self.bottom.SetTrainApproaching()
 			else:
 				self.bottom.SetNotTrainApproaching()
@@ -680,7 +680,7 @@ def Splash():
 	if Args.SplashScreen:
 		with canvas(device) as draw:
 			draw.multiline_text((64, 10), "Departure Board", font= ImageFont.truetype("%s/resources/Bold.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),20), align="center")
-			draw.multiline_text((45, 35), "Version : 0.1.LU -  By Jonathan Foot", font=ImageFont.truetype("%s/resources/Skinny.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
+			draw.multiline_text((45, 35), "Version : 1.0.LU -  By Jonathan Foot", font=ImageFont.truetype("%s/resources/Skinny.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
 		time.sleep(30) #Wait such a long time to allow the device to startup and connect to a WIFI source first.
 
 
