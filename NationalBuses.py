@@ -59,6 +59,7 @@ parser.add_argument("-m","--ViaMessageMode", choices=["full", "shorten", "reduce
 parser.add_argument("-c","--ReducedValue", type=check_positive, default=2, help="If you are using a 'reduced' via message this value is for every n suburbs visited report it in the via; default is 2 ie every other suburb visited report.")
 parser.add_argument("-o","--Destination", choices=["1","2"], default="1", help="Depending on the region the buses destination reported maybe a generic place holder location. If this is the case you can switch to mode 2 for the last stop name.")
 parser.add_argument("-f","--FixedLocations",type=check_positive, default=3, help="If you are using 'fixed' via message this value will limit the max number of via destinations. Taking F locations evenly between a route.")
+parser.add_argument("-g","--ServiceName", choices=["1","2"], default="1", help="Depending on the region the buses service number maybe different to the bus service name. If this is the case you can switch between bus service nummber or name to suit your preference.")
 parser.add_argument("--ExtraLargeLineName", dest='LargeLineName', action='store_true', help="By default the service number/ name assumes it will be under 3 characters in length ie 0 - 999. Some regions may use words, such as 'Indigo' Service in Nottingham. Use this tag to expand the named region. When this is on you can not also have show index turned on.")
 parser.add_argument("--ShowOperator",  dest='ShowOperator', action='store_true', help="If at the start of the Via message you want to say both the operator of the service and the Via message use this to turn it on; by default it is off.")
 parser.add_argument("--ReducedAnimations", help="If you wish to stop the Via animation and cycle faster through the services use this tag to turn the animation off.", dest='ReducedAnimations', action='store_true')
@@ -79,8 +80,8 @@ Args = parser.parse_args()
 
 ## Defines all the programs "global" variables 
 # Defines the fonts used throughout most the program
-BasicFont = ImageFont.truetype("%s/lower.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),14)
-SmallFont = ImageFont.truetype("%s/lower.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),12)
+BasicFont = ImageFont.truetype("%s/resources/lower.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),14)
+SmallFont = ImageFont.truetype("%s/resources/lower.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),12)
 # To prevent unnecessary calls to the API we assume a service will always follow the same route throughout the day 
 # Once we have got the destination for that service and it's "Via" message we save it here to be looked up if needed again.
 Vias = {"0":"Via London Bridge"}
@@ -121,7 +122,7 @@ class LiveTime(object):
 	def __init__(self, Data, Index):
 		self.ID =  str(Data['id'])
 		self.Operator = str(Data['operator_name'])
-		self.ServiceNumber = "%s.%s" % (Index + 1,str(Data['line_name'])) if Args.ShowIndex else str(Data['line_name']) 
+		self.ServiceNumber = self.GetServiceNumber(Data, Index)
 		self.Destination = str(Data['direction'])
 		self.SchArrival = str(Data['aimed_departure_time'])
 		self.ExptArrival = str(Data['best_departure_estimate'])
@@ -143,6 +144,13 @@ class LiveTime(object):
 		if Diff >=15 :
 			return ' ' + Arrival.time().strftime("%H:%M" if (Args.TimeFormat==24) else  "%I:%M")
 		return  ' %d min' % Diff
+
+	def GetServiceNumber(self, Data, Index):
+		if Args.ServiceName == "1":
+			return "%s.%s" % (Index + 1,str(Data['line'])) if Args.ShowIndex else str(Data['line']) 
+		elif Args.ServiceName == "2":
+			return "%s.%s" % (Index + 1,str(Data['line_name'])) if Args.ShowIndex else str(Data['line_name']) 
+
 
 	# The "Via" message is not given by the API, this method generates the Via message and returns it.
 	def GetComplexVia(self, Service):
@@ -543,7 +551,6 @@ class ScrollTime():
 			self.image_composition.remove_image(self.IStaticOld)
 			self.image_composition.remove_image(self.rectangle)
 			del self.IStaticOld
-			del self.rectangle
 
 			self.render()
 			self.synchroniser.ready(self)
@@ -699,7 +706,7 @@ device = cmdline.create_device( DisplayParser.parse_args(['--display', str(Args.
 
 image_composition = ImageComposition(device)
 board = boardFixed(image_composition,Args.Delay,device)
-FontTime = ImageFont.truetype("%s/time.otf"  % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),16)
+FontTime = ImageFont.truetype("%s/resources/time.otf"  % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),16)
 device.contrast(255)
 energyMode = "normal"
 StartUpDate = datetime.now().date()
@@ -716,8 +723,8 @@ def display():
 def Splash():
 	if Args.SplashScreen:
 		with canvas(device) as draw:
-			draw.multiline_text((64, 10), "Departure Board", font= ImageFont.truetype("%s/Bold.ttf"  % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),20), align="center")
-			draw.multiline_text((45, 35), "Version : 1.4.OT -  By Jonathan Foot", font=ImageFont.truetype("%s/Skinny.ttf"  % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
+			draw.multiline_text((64, 10), "Departure Board", font= ImageFont.truetype("%s/resources/Bold.ttf"  % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),20), align="center")
+			draw.multiline_text((45, 35), "Version : 1.5.OT -  By Jonathan Foot", font=ImageFont.truetype("%s/resources/Skinny.ttf"  % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
 		time.sleep(30) #Wait such a long time to allow the device to startup and connect to a WIFI source first.
 
 try:
