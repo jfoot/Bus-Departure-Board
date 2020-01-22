@@ -1,7 +1,8 @@
 # This software was produced by Jonathan Foot (c) 2019, all rights reserved.
 # Project Website : https://departureboard.jonathanfoot.com
 # Documentation   : https://jonathanfoot.com/Projects/DepartureBoard
-# Description     : This program allows you to display a live bus departure board for any London Underground Station.
+# Description     :  This program allows you to display a live London Underground departure board for any Tube station.
+# CURRENTLY IN DEVELOPMENT - NOT IN A WORKING STATE
 
 import json
 import urllib2
@@ -75,7 +76,7 @@ Args = parser.parse_args()
 
 ## Defines all the programs "global" variables 
 # Defines the basic font used throughout most of the text boxes in the program
-BasicFont = ImageFont.truetype("%s/lower.ttf" %(os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) ),14)
+BasicFont = ImageFont.truetype("%s/resources/lower.ttf" %(os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) ),14)
 # Defines the place holder via message when one can not be found/ given in the API.
 GenericVia = "Via Central Reading"
 
@@ -309,7 +310,7 @@ class ScrollTime():
 		self.device = device
 		self.partner = None
 		self.TrainApproaching =  ComposableImage(TextImage(device, "* STAND BACK TRAIN APPROACHING *").image, position=(0, 16 * self.position))
-		self.Blank =  ComposableImage(RectangleCover(device).image, position=(0,16 * position + 16))
+		self.Blank =  ComposableImage(TextImage(device, "                                ").image, position=(0,16 * position + 16))
 		
 		self.delay = scroll_delay
 		self.ticks = 0
@@ -336,8 +337,6 @@ class ScrollTime():
 
 		displayTimeTemp = TextImage(device, newService.DisplayTime)
 		self.IDisplayTime = ComposableImage(displayTimeTemp.image, position=(device.width - displayTimeTemp.width, 16 * self.position))
-	
-		self.checkForTrainAppraoching()
 
 		self.image_composition.add_image(self.IDisplayTime)
 		self.image_composition.refresh()
@@ -349,10 +348,8 @@ class ScrollTime():
 			self.state = self.STUD
 			self.synchroniser.ready(self)
 			return 
-			
-		if self.position ==  1 and self.CurrentService.TimeInMin() > 1:
-			self.Bottom.SetNotTrainApproaching()
 		
+				
 		self.synchroniser.busy(self)
 		self.IStaticOld =  ComposableImage(StaticTextImage(device,newService, self.CurrentService).image, position=(0, (16 * self.position)))
 	
@@ -373,13 +370,8 @@ class ScrollTime():
 		self.CurrentService = newService
 		self.max_pos = self.IDestination.width
 
-		self.checkForTrainAppraoching()
-
 		self.state = self.WAIT_STUD if (newService.ID == "0") else self.WAIT_OPENING
 	
-	def checkForTrainAppraoching(self):
-		if Args.warning and self.CurrentService.TimeInMin() <= 1 and self.position == 0:
-			self.Bottom.SetTrainApproaching()
 	
 	# Used when you want to delete the row/card/object.
 	def delete(self):
@@ -495,7 +487,6 @@ class ScrollTime():
 			self.image_composition.remove_image(self.IStaticOld)
 			self.image_composition.remove_image(self.rectangle)
 			del self.IStaticOld
-			del self.rectangle
 
 			self.render()
 			self.synchroniser.ready(self)
@@ -539,9 +530,6 @@ class ScrollTime():
 	def addPartner(self, partner):
 		self.partner = partner
 		
-	def addBottom(self, bottom):
-		self.Bottom = bottom
-
 	# Used to add a time delay between animations.
 	def is_waiting(self):
 		self.ticks += 1
@@ -569,14 +557,8 @@ class boardFixed():
 		self.NoServices = ComposableImage(NoServiceTemp.image, position=(device.width/2- NoServiceTemp.width/2,device.height/2-NoServiceTemp.height/2))
 
 		self.top.addPartner(self.middel)
-		self.top.addBottom(self.bottom)
-		
 		self.middel.addPartner(self.bottom)
-		self.middel.addBottom(self.bottom)
-		
-		self.bottom.addBottom(self.bottom)
-	
-	
+
 	
 	# Set up the cards for the initial starting animation.
 	def setInitalCards(self):
@@ -642,6 +624,12 @@ class boardFixed():
 				else:
 					card.changeCard(self.Services[self.x % len(self.Services)],device)
 		
+		if Args.warning:
+			if self.Services[0].TimeInMin() <= 1:
+				self.bottom.SetTrainApproaching()
+			else:
+				self.bottom.SetNotTrainApproaching()
+		
 		if  not (Args.FixToArrive and row == 1):
 			self.x = self.x + 1
 
@@ -674,7 +662,7 @@ device = cmdline.create_device( DisplayParser.parse_args(['--display', str(Args.
 
 image_composition = ImageComposition(device)
 board = boardFixed(image_composition,Args.Delay,device)
-FontTime = ImageFont.truetype("%s/time.otf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),16)
+FontTime = ImageFont.truetype("%s/resources/time.otf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),16)
 device.contrast(255)
 energyMode = "normal"
 StartUpDate = datetime.now().date()
@@ -691,8 +679,8 @@ def display():
 def Splash():
 	if Args.SplashScreen:
 		with canvas(device) as draw:
-			draw.multiline_text((64, 10), "Departure Board", font= ImageFont.truetype("%s/Bold.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),20), align="center")
-			draw.multiline_text((45, 35), "Version : 0.1.LU -  By Jonathan Foot", font=ImageFont.truetype("%s/Skinny.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
+			draw.multiline_text((64, 10), "Departure Board", font= ImageFont.truetype("%s/resources/Bold.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),20), align="center")
+			draw.multiline_text((45, 35), "Version : 0.1.LU -  By Jonathan Foot", font=ImageFont.truetype("%s/resources/Skinny.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
 		time.sleep(30) #Wait such a long time to allow the device to startup and connect to a WIFI source first.
 
 

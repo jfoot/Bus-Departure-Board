@@ -1,7 +1,7 @@
 # This software was produced by Jonathan Foot (c) 2019, all rights reserved.
 # Project Website : https://departureboard.jonathanfoot.com
 # Documentation   : https://jonathanfoot.com/Projects/DepartureBoard
-# Description     : This program allows you to display a live bus departure board for any Reading Buses service.
+# Description     : This program allows you to display demo a bus departure board for an example Reading Buses stop.
 
 import urllib2
 import time
@@ -65,7 +65,7 @@ Args = parser.parse_args()
 
 ## Defines all the programs "global" variables 
 # Defines the basic font used throughout most of the text boxes in the program
-BasicFont = ImageFont.truetype("%s/lower.ttf" %(os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) ),14)
+BasicFont = ImageFont.truetype("%s/resources/lower.ttf" %(os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) ),14)
 # Defines the place holder via message when one can not be found/ given in the API.
 GenericVia = "Via Central Reading"
 
@@ -156,6 +156,7 @@ class LiveTime(object):
 		except Exception as e:
 			print(str(e))
 			return []
+
 
 ###
 # Below contains everything for the drawing on the board.
@@ -453,7 +454,6 @@ class ScrollTime():
 			self.image_composition.remove_image(self.IStaticOld)
 			self.image_composition.remove_image(self.rectangle)
 			del self.IStaticOld
-			del self.rectangle
 
 			self.render()
 			self.synchroniser.ready(self)
@@ -550,7 +550,7 @@ class boardFixed():
 			self.x = 1 if Args.FixToArrive else 0
 			if LiveTime.TimePassed():  
 				self.Services = LiveTime.GetData()
-				print("New Data Retrieved %s" % datetime.now().time())
+				# print("New Data Retrieved %s" % datetime.now().time())
 		
 		# If there are more rows (3) than there is services scheduled show nothing.
 		if row > len(self.Services):       
@@ -607,7 +607,7 @@ device = cmdline.create_device( DisplayParser.parse_args(['--display', str(Args.
 
 image_composition = ImageComposition(device)
 board = boardFixed(image_composition,Args.Delay,device)
-FontTime = ImageFont.truetype("%s/time.otf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),16)
+FontTime = ImageFont.truetype("%s/resources/time.otf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),16)
 device.contrast(255)
 energyMode = "normal"
 StartUpDate = datetime.now().date()
@@ -624,8 +624,8 @@ def display():
 def Splash():
 	if Args.SplashScreen:
 		with canvas(device) as draw:
-			draw.multiline_text((64, 10), "Departure Board", font= ImageFont.truetype("%s/Bold.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),20), align="center")
-			draw.multiline_text((45, 35), "Version : 1.3.EX -  By Jonathan Foot", font=ImageFont.truetype("%s/Skinny.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
+			draw.multiline_text((64, 10), "Departure Board", font= ImageFont.truetype("%s/resources/Bold.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),20), align="center")
+			draw.multiline_text((45, 35), "Version : 1.4.EX -  By Jonathan Foot", font=ImageFont.truetype("%s/resources/Skinny.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
 		time.sleep(30) #Wait such a long time to allow the device to startup and connect to a WIFI source first.
 
 
