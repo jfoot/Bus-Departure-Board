@@ -59,7 +59,6 @@ parser.add_argument("-w","--WarningTime", help="How soon before the warning mess
 parser.add_argument('--ShowIndex', dest='ShowIndex', action='store_true',help="Do you wish to see index position for each service due to arrive.",default=True)
 parser.add_argument("--IncreasedAnimations", help="If you wish to stop the Via animation and cycle faster through the services use this tag to turn the animation off.", dest='ReducedAnimations', action='store_false', default=True)
 parser.add_argument("--FixNextToArrive",dest='FixToArrive', action='store_true', default=False, help="Keep the train next arrive at the very top of the display until it has left; by default false")
-parser.add_argument("--HideUnknownVias", help="If the API does not report any known via route a placeholder of 'Via Central Reading' is used. If you wish to stop the animation for unknowns use this tag.", dest='HideUnknownVias', action='store_true')
 parser.add_argument('--no-splashscreen', dest='SplashScreen', action='store_false',help="Do you wish to see the splash screen at start up; recommended and on by default.")
 parser.add_argument('--no-warning', dest='warning', default=False, action='store_true',help="Do you want the warning 'STAND BACK TRAIN APPROACHING' message to flash; on by default.")
 parser.add_argument("--Display", default="ssd1322", choices=['ssd1322','pygame','capture','gifanim'], help="Used for development purposes, allows you to switch from a physical display to a virtual emulated one; default 'ssd1322'")
@@ -75,8 +74,7 @@ Args = parser.parse_args()
 ## Defines all the programs "global" variables 
 # Defines the basic font used throughout most of the text boxes in the program
 BasicFont = ImageFont.truetype("%s/resources/lower.ttf" %(os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) ),14)
-# Defines the place holder via message when one can not be found/ given in the API.
-GenericVia = "Via Central Reading"
+
 
 ###
 # Below contains the class which is used to reperesent one instance of a service record. It is also responsible for getting the information from the Transport for London API.
@@ -417,7 +415,7 @@ class ScrollTime():
 					if self.synchroniser.is_synchronised():
 						self.synchroniser.busy(self)
 						self.Alternator = 0
-						if (Args.HideUnknownVias and self.CurrentService.Via == GenericVia) or Args.ReducedAnimations:
+						if Args.ReducedAnimations:
 							self.state = self.WAIT_SYNC
 						elif self.CurrentService.ID == "0":
 							self.synchroniser.ready(self)
