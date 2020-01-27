@@ -342,16 +342,18 @@ class ScrollTime():
 	
 		self.image_composition.add_image(self.IStaticOld)
 		self.image_composition.add_image(self.rectangle)
-		self.image_composition.remove_image(self.IDestination)
-		self.image_composition.remove_image(self.IServiceNumber)
-		self.image_composition.remove_image(self.IDisplayTime)
+		if self.CurrentService.ID != "0":
+			self.image_composition.remove_image(self.IDestination)
+			self.image_composition.remove_image(self.IServiceNumber)
+			self.image_composition.remove_image(self.IDisplayTime)
+			del self.IDestination
+			del self.IServiceNumber
+			del self.IDisplayTime
+		
 		if self.partner != None and self.partner.CurrentService.ID != "0":
 			self.partner.refresh()
 			
 		self.image_composition.refresh()
-		del self.IDestination
-		del self.IServiceNumber
-		del self.IDisplayTime
 
 		self.generateCard(newService)
 		self.CurrentService = newService
