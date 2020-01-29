@@ -434,16 +434,21 @@ class ScrollTime():
 	
 		self.image_composition.add_image(self.IStaticOld)
 		self.image_composition.add_image(self.rectangle)
-		self.image_composition.remove_image(self.IDestination)
-		self.image_composition.remove_image(self.IServiceNumber)
-		self.image_composition.remove_image(self.IDisplayTime)
+
+		if self.CurrentService.ID != "0":
+			self.image_composition.remove_image(self.IDestination)
+			self.image_composition.remove_image(self.IServiceNumber)
+			self.image_composition.remove_image(self.IDisplayTime)
+			del self.IDestination
+			del self.IServiceNumber
+			del self.IDisplayTime
+
+
 		if self.partner != None and self.partner.CurrentService.ID != "0":
 			self.partner.refresh()
 			
 		self.image_composition.refresh()
-		del self.IDestination
-		del self.IServiceNumber
-		del self.IDisplayTime
+		
 
 		self.generateCard(newService)
 		self.CurrentService = newService
@@ -724,7 +729,7 @@ def Splash():
 	if Args.SplashScreen:
 		with canvas(device) as draw:
 			draw.multiline_text((64, 10), "Departure Board", font= ImageFont.truetype("%s/resources/Bold.ttf"  % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),20), align="center")
-			draw.multiline_text((45, 35), "Version : 1.5.OT -  By Jonathan Foot", font=ImageFont.truetype("%s/resources/Skinny.ttf"  % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
+			draw.multiline_text((45, 35), "Version : 1.6.OT -  By Jonathan Foot", font=ImageFont.truetype("%s/resources/Skinny.ttf"  % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
 		time.sleep(30) #Wait such a long time to allow the device to startup and connect to a WIFI source first.
 
 try:
