@@ -8,6 +8,8 @@
 
 Live Departure boards is a selection of different Python programs capable of replicating a live bus or rail departure board for any bus stop or train station (or tube station) in the UK. 
 
+*Not all regions will provide live data and data quality may vary region to region. Some regions may charge for Live data, however, Scheduled/Timetabled data is free in all regions.*
+
 ## Project Resources
 
 * Full information on how to use the programs can be found in the 
