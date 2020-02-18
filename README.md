@@ -23,7 +23,7 @@ Live Departure boards is a selection of different Python programs capable of rep
 * Reading Buses Depature Board (ReadingBuses.py)- get live bus stop information for all bus stops serviced by Reading Buses, this program uses the [Reading Buses API](http://rtl2.ods-live.co.uk/cms/apiservice)
 * National Bus Depature Board (NationalBuses.py)- get live bus stop infromation from any bus stop in the whole of the UK for all bus services, this program uses the [Transport API](http://transportapi.com)
 * National Railway Depature Board (NationalRail.py) - get live train station information for any UK train station, this program uses the [National Rail API](http://realtime.nationalrail.co.uk/OpenLDBWSRegistration/)
-* London Underground Depature Board ((LondonUnderground.py) - get live tube station information for any London Underground station, this program uses the [Transport for London API](https://api-portal.tfl.gov.uk/login)
+* London Underground Depature Board (LondonUnderground.py) - get live tube station information for any London Underground station, this program uses the [Transport for London API](https://api-portal.tfl.gov.uk/login)
 
 
 ## Example Video
