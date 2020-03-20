@@ -1,9 +1,9 @@
 # Live Departure Board 
 ### Bus Departure Board for any UK Bus Stop
-![Bus Demostartion Display](https://jonathanfoot.com/Assets/DemoDisplay.gif)
+![Bus Demostartion Display](https://jonathanfoot.com/assets/DemoDisplay.gif)
 
 ### Train Departure Board for any UK Station
-![Train Demostartion Display](https://jonathanfoot.com/Assets/TrainDemoDisplay.gif)
+![Train Demostartion Display](https://jonathanfoot.com/assets/TrainDemoDisplay.gif)
 
 
 Live Departure boards is a selection of different Python programs capable of replicating a live bus or rail departure board for any bus stop or train station (or tube station) in the UK. 
