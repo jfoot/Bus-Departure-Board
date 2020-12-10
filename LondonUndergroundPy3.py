@@ -1,15 +1,16 @@
-# This software was produced by Jonathan Foot (c) 2019, all rights reserved.
+# This software was produced by Jonathan Foot (c) 2021, all rights reserved.
 # Project Website : https://departureboard.jonathanfoot.com
 # Documentation   : https://jonathanfoot.com/Projects/DepartureBoard
 # Description     :  This program allows you to display a live London Underground departure board for any Tube station.
-# Python 2 Required (Deprecated)
+# Python 3 Required.
 
 import json
-import urllib2
+
 import time
 import inspect,os
 import sys
 import argparse
+from urllib.request import urlopen
 from PIL import ImageFont, Image, ImageDraw
 from luma.core.render import canvas
 from luma.core.interface.serial import spi
@@ -63,7 +64,6 @@ parser.add_argument('--no-splashscreen', dest='SplashScreen', action='store_fals
 parser.add_argument('--no-warning', dest='warning', default=False, action='store_true',help="Do you want the warning 'STAND BACK TRAIN APPROACHING' message to flash; on by default.")
 parser.add_argument("--Display", default="ssd1322", choices=['ssd1322','pygame','capture','gifanim'], help="Used for development purposes, allows you to switch from a physical display to a virtual emulated one; default 'ssd1322'")
 parser.add_argument("--max-frames", default=60,dest='maxframes', type=check_positive, help="Used only when using gifanim emulator, sets how long the gif should be.")
-parser.add_argument("--Acknowledge-Deprecated", dest='acknowledgeDep', action='store_true', help="ATTENTION - You are acknowledging you understand this version of the program is deprecated and is not supported anymore. Doing this will hide the update message, but does mean you won't get any more updates.")
 
 # Defines all required paramaters
 requiredNamed = parser.add_argument_group('required named arguments')
@@ -138,12 +138,13 @@ class LiveTime(object):
 		services = []
 
 		try:
-			tempServices = json.loads(urllib2.urlopen("https://api.tfl.gov.uk/StopPoint/%s/Arrivals?app_id=%s&app_key=%s" %  (Args.StationID, Args.APIID, Args.APIKey)).read())
-			for service in tempServices:
-				# If not in excluded services list, convert custom API object to LiveTime object and add to list.
-				if str(service['lineName']) not in Args.ExcludeLines:
-					if Args.Direction == 'both' or ("direction" in service and Args.Direction == str(service["direction"])):
-						services.append(LiveTime(service))
+			with urlopen("https://api.tfl.gov.uk/StopPoint/%s/Arrivals?app_id=%s&app_key=%s" %  (Args.StationID, Args.APIID, Args.APIKey)) as conn:
+				tempServices = json.loads(conn.read())
+				for service in tempServices:
+					# If not in excluded services list, convert custom API object to LiveTime object and add to list.
+					if str(service['lineName']) not in Args.ExcludeLines:
+						if Args.Direction == 'both' or ("direction" in service and Args.Direction == str(service["direction"])):
+							services.append(LiveTime(service))
 							
 			services.sort(key=lambda x: x.TimeInMin())	
 
@@ -669,12 +670,7 @@ StartUpDate = datetime.now().date()
 # Draws the clock and tells the rest of the display next frame wanted.
 def display():
 	board.tick()
-	msgTime = ''
-	if Args.acknowledgeDep:
-		msgTime = str(datetime.now().strftime("%H:%M:%S" if (Args.TimeFormat==24) else "%I:%M:%S"))	
-	else:
-		msgTime = 'update.jonathanfoot.com'
-	
+	msgTime = str(datetime.now().strftime("%H:%M:%S" if (Args.TimeFormat==24) else "%I:%M:%S"))	
 	with canvas(device, background=image_composition()) as draw:
 		image_composition.refresh()
 		draw.multiline_text(((device.width - draw.textsize(msgTime, FontTime)[0])/2, device.height-16), msgTime, font=FontTime, align="center")
@@ -684,12 +680,11 @@ def Splash():
 	if Args.SplashScreen:
 		with canvas(device) as draw:
 			draw.multiline_text((64, 10), "Departure Board", font= ImageFont.truetype("%s/resources/Bold.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),20), align="center")
-			draw.multiline_text((45, 35), "Version : 1.1.LU -  By Jonathan Foot", font=ImageFont.truetype("%s/resources/Skinny.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
+			draw.multiline_text((45, 35), "Version : 2.1.LU -  By Jonathan Foot", font=ImageFont.truetype("%s/resources/Skinny.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
 		time.sleep(30) #Wait such a long time to allow the device to startup and connect to a WIFI source first.
 
 
 try:
-	print "\033[1;31m DEPRECATED WARNING: THIS VERSION OF THE SOFTWARE IS NO LONGER SUPPORTED, IT IS STRONGLY RECOMMEND YOU MANUALLY UPGRADE IT. MORE INFORMATION CAN BE FOUND AT UPDATE.JONATHANFOOT.COM\033[0;0m"
 	Splash()
 	# Run the program forever		
 	while True:
@@ -703,8 +698,8 @@ try:
 		# Turns the display into one of the energy saving modes if in the correct time and enabled.
 		if (Args.EnergySaverMode != "none" and is_time_between()):
 			# Check for program updates and restart the pi every 'UpdateDays' Days.
-			if (datetime.now().date() - StartUpDate).days >= Args.UpdateDays and not Args.acknowledgeDep:
-				print "Checking for updates and then restarting Pi."
+			if (datetime.now().date() - StartUpDate).days >= Args.UpdateDays:
+				print ("Checking for updates and then restarting Pi.")
 				os.system("sudo git -C %s pull; sudo reboot" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))))
 				sys.exit()
 			if Args.EnergySaverMode == "dim":

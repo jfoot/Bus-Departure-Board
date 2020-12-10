@@ -2,6 +2,7 @@
 # Project Website : https://departureboard.jonathanfoot.com
 # Documentation   : https://jonathanfoot.com/Projects/DepartureBoard
 # Description     : This program allows you to display demo a bus departure board for an example Reading Buses stop.
+# Python 2 Required (Deprecated)
 
 import urllib2
 import time
@@ -61,6 +62,7 @@ parser.add_argument("--HideUnknownVias", help="If the API does not report any kn
 parser.add_argument('--no-splashscreen', dest='SplashScreen', action='store_false',help="Do you wish to see the splash screen at start up; recommended and on by default.")
 parser.add_argument("--Display", default="ssd1322", choices=['ssd1322','pygame','capture','gifanim'], help="Used for development purposes, allows you to switch from a physical display to a virtual emulated one; default 'ssd1322'")
 parser.add_argument("--max-frames", default=60,dest='maxframes', type=check_positive, help="Used only when using gifanim emulator, sets how long the gif should be.")
+parser.add_argument("--Acknowledge-Deprecated", dest='acknowledgeDep', action='store_true', help="ATTENTION - You are acknowledging you understand this version of the program is deprecated and is not supported anymore. Doing this will hide the update message, but does mean you won't get any more updates.")
 Args = parser.parse_args()
 
 ## Defines all the programs "global" variables 
@@ -619,7 +621,12 @@ StartUpDate = datetime.now().date()
 # Draws the clock and tells the rest of the display next frame wanted.
 def display():
 	board.tick()
-	msgTime = str(datetime.now().strftime("%H:%M" if (Args.TimeFormat==24) else "%I:%M"))	
+	msgTime = ''
+	if Args.acknowledgeDep:
+		msgTime = str(datetime.now().strftime("%H:%M" if (Args.TimeFormat==24) else "%I:%M"))	
+	else:
+		msgTime = 'update.jonathanfoot.com'
+
 	with canvas(device, background=image_composition()) as draw:
 		image_composition.refresh()
 		draw.multiline_text(((device.width - draw.textsize(msgTime, FontTime)[0])/2, device.height-16), msgTime, font=FontTime, align="center")
@@ -634,6 +641,7 @@ def Splash():
 
 
 try:
+	print "\033[1;31m DEPRECATED WARNING: THIS VERSION OF THE SOFTWARE IS NO LONGER SUPPORTED, IT IS STRONGLY RECOMMEND YOU MANUALLY UPGRADE IT. MORE INFORMATION CAN BE FOUND AT UPDATE.JONATHANFOOT.COM\033[0;0m"
 	Splash()
 	# Run the program forever		
 	while True:
@@ -647,7 +655,7 @@ try:
 		# Turns the display into one of the energy saving modes if in the correct time and enabled.
 		if (Args.EnergySaverMode != "none" and is_time_between()):
 			# Check for program updates and restart the pi every 'UpdateDays' Days.
-			if (datetime.now().date() - StartUpDate).days >= Args.UpdateDays:
+			if (datetime.now().date() - StartUpDate).days >= Args.UpdateDays and not Args.acknowledgeDep:
 				print "Checking for updates and then restarting Pi."
 				os.system("sudo git -C %s pull; sudo reboot" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))))
 				sys.exit()
