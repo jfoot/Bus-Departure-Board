@@ -12,7 +12,6 @@ import sys
 import argparse
 from PIL import ImageFont, Image, ImageDraw
 from luma.core.render import canvas
-from luma.core.interface.serial import spi
 from luma.core import cmdline
 from datetime import datetime
 from luma.core.image_composition import ImageComposition, ComposableImage

@@ -12,10 +12,8 @@ import argparse
 from urllib.request import urlopen
 from PIL import ImageFont, Image, ImageDraw
 from luma.core.render import canvas
-from luma.core.interface.serial import spi
-from luma.core import cmdline, error
-from lxml import objectify
-from datetime import datetime, date
+from luma.core import cmdline
+from datetime import datetime
 from luma.core.image_composition import ImageComposition, ComposableImage
 
 ###

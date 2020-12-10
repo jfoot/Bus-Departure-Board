@@ -6,17 +6,14 @@
 
 import urllib2
 import time
-import math
 import inspect,os
 import sys
 import json
 import argparse
 from PIL import ImageFont, Image, ImageDraw
 from luma.core.render import canvas
-from luma.core.interface.serial import spi
-from luma.core import cmdline, error
-from lxml import objectify
-from datetime import datetime, date
+from luma.core import cmdline
+from datetime import datetime
 from luma.core.image_composition import ImageComposition, ComposableImage
 
 ###
