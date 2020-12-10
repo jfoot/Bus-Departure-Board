@@ -4,9 +4,7 @@
 # Description     : This program allows you to display demo a bus departure board for an example Reading Buses stop. 
 # Python 3 Required.
 
-
 import time
-import math
 import inspect,os
 import sys
 import argparse
@@ -14,9 +12,9 @@ from urllib.request import urlopen
 from PIL import ImageFont, Image, ImageDraw
 from luma.core.render import canvas
 from luma.core.interface.serial import spi
-from luma.core import cmdline, error
+from luma.core import cmdline
 from lxml import objectify
-from datetime import datetime, date
+from datetime import datetime
 from luma.core.image_composition import ImageComposition, ComposableImage
 
 ###
