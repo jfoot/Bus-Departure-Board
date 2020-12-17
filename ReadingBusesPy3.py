@@ -60,6 +60,8 @@ parser.add_argument("--HideUnknownVias", help="If the API does not report any kn
 parser.add_argument('--no-splashscreen', dest='SplashScreen', action='store_false',help="Do you wish to see the splash screen at start up; recommended and on by default.")
 parser.add_argument("--Display", default="ssd1322", choices=['ssd1322','pygame','capture','gifanim'], help="Used for development purposes, allows you to switch from a physical display to a virtual emulated one; default 'ssd1322'")
 parser.add_argument("--max-frames", default=60,dest='maxframes', type=check_positive, help="Used only when using gifanim emulator, sets how long the gif should be.")
+parser.add_argument("--no-console-output",dest='NoConsole', action='store_true', help="Used to stop the program outputting anything to console to isn't an error message, you might want to do this if your logging the program output into a file to record crashes.")
+
 
 # Defines all required paramaters
 requiredNamed = parser.add_argument_group('required named arguments')
@@ -557,7 +559,7 @@ class boardFixed():
 			self.x = 1 if Args.FixToArrive else 0
 			if LiveTime.TimePassed():  
 				self.Services = LiveTime.GetData()
-				# print("New Data Retrieved %s" % datetime.now().time())
+				print_safe("New Data Retrieved %s" % datetime.now().time())
 		
 		# If there are more rows (3) than there is services scheduled show nothing.
 		if row > len(self.Services):       
@@ -602,6 +604,11 @@ def is_time_between():
 		return check_time >= Args.InactiveHours[0] and check_time <= Args.InactiveHours[1]
 	else: # crosses midnight
 		return check_time >= Args.InactiveHours[0] or check_time <= Args.InactiveHours[1]
+
+# Checks that the user has allowed outputting to console.
+def print_safe(msg):
+	if not Args.NoConsole:
+		print(msg)
 
 
 ###
@@ -651,7 +658,7 @@ try:
 		if (Args.EnergySaverMode != "none" and is_time_between()):
 			# Check for program updates and restart the pi every 'UpdateDays' Days.
 			if (datetime.now().date() - StartUpDate).days >= Args.UpdateDays:
-				print ("Checking for updates and then restarting Pi.")
+				print_safe("Checking for updates and then restarting Pi.")
 				os.system("sudo git -C %s pull; sudo reboot" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))))
 				sys.exit()
 			if Args.EnergySaverMode == "dim":
