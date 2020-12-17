@@ -156,6 +156,7 @@ class LiveTime(object):
 						services.append(LiveTime(service, len(services)))
 			return services
 		except Exception as e:
+			print("GetData() ERROR")
 			print(str(e))
 			return []
 

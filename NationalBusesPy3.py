@@ -206,6 +206,7 @@ class LiveTime(object):
 			Vias[Service] = Via[:-2] + "."			         
 			return Vias[Service]
 		except Exception as e:
+			print("GetComplexVia(service) ERROR")
 			print(str(e))
 		Vias[Service] = Via + "."
 		Dest[Service] = self.Destination
@@ -237,6 +238,7 @@ class LiveTime(object):
 						services.append(LiveTime(service, len(services)))
 				return services
 		except Exception as e:
+			print("GetData() ERROR")
 			print(str(e))
 			return []
 
@@ -575,12 +577,13 @@ class ScrollTime():
 
 	# Used to reset the image on the display.
 	def refresh(self):
-		self.image_composition.remove_image(self.IDestination)
-		self.image_composition.remove_image(self.IServiceNumber)
-		self.image_composition.remove_image(self.IDisplayTime)
-		self.image_composition.add_image(self.IDestination)
-		self.image_composition.add_image(self.IServiceNumber)
-		self.image_composition.add_image(self.IDisplayTime)
+		if hasattr(self, 'IDestination') and  hasattr(self, 'IServiceNumber') and hasattr(self, 'IDisplayTime'):
+			self.image_composition.remove_image(self.IDestination)
+			self.image_composition.remove_image(self.IServiceNumber)
+			self.image_composition.remove_image(self.IDisplayTime)
+			self.image_composition.add_image(self.IDestination)
+			self.image_composition.add_image(self.IServiceNumber)
+			self.image_composition.add_image(self.IDisplayTime)
 
 	# Used to add a partner; this is the row below it self. Used when needed to tell partner to redraw itself
 	# on top of the row above it (layering the text boxes correctly)
@@ -736,7 +739,7 @@ def Splash():
 	if Args.SplashScreen:
 		with canvas(device) as draw:
 			draw.multiline_text((64, 10), "Departure Board", font= ImageFont.truetype("%s/resources/Bold.ttf"  % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),20), align="center")
-			draw.multiline_text((45, 35), "Version : 2.0.OT -  By Jonathan Foot", font=ImageFont.truetype("%s/resources/Skinny.ttf"  % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
+			draw.multiline_text((45, 35), "Version : 2.1.OT -  By Jonathan Foot", font=ImageFont.truetype("%s/resources/Skinny.ttf"  % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
 		time.sleep(30) #Wait such a long time to allow the device to startup and connect to a WIFI source first.
 
 try:

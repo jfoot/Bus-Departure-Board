@@ -194,6 +194,7 @@ class LiveTime(object):
                     return ExpTime
                 return  ' %d min' % Diff
             except Exception as e:
+                print("GetExptTime() ERROR")
                 print(str(e))
                 return ExpTime
 
@@ -230,6 +231,7 @@ class LiveTime(object):
 
             return services
         except Exception as e:
+            print("GetData() ERROR")
             print(str(e))
             return []
 
@@ -570,10 +572,11 @@ class ScrollTime():
 
    	# Used to reset the image on the display. 
     def refresh(self):
-        self.image_composition.remove_image(self.IDisplayText)
-        self.image_composition.remove_image(self.IDisplayTime)
-        self.image_composition.add_image(self.IDisplayText)
-        self.image_composition.add_image(self.IDisplayTime)
+        if hasattr(self, 'IDisplayText') and  hasattr(self, 'IDisplayTime'):
+            self.image_composition.remove_image(self.IDisplayText)
+            self.image_composition.remove_image(self.IDisplayTime)
+            self.image_composition.add_image(self.IDisplayText)
+            self.image_composition.add_image(self.IDisplayTime)
 
 	# Used to add a partner; this is the row below it self. Used when needed to tell partner to redraw itself
 	# on top of the row above it (layering the text boxes correctly)
@@ -748,7 +751,7 @@ def Splash():
     if Args.SplashScreen:
         with canvas(device) as draw:
             draw.multiline_text((64, 10), "Departure Board", font= ImageFont.truetype("%s/resources/Bold.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),20), align="center")
-            draw.multiline_text((45, 35), "Version : 2.0.NR -  By Jonathan Foot", font=ImageFont.truetype("%s/resources/Skinny.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
+            draw.multiline_text((45, 35), "Version : 2.1.NR -  By Jonathan Foot", font=ImageFont.truetype("%s/resources/Skinny.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
         time.sleep(30) #Wait such a long time to allow the device to startup and connect to a WIFI source first.
 
 

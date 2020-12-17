@@ -161,6 +161,7 @@ class LiveTime(object):
 						services.append(LiveTime(service, len(services)))
 			return services
 		except Exception as e:
+			print("GetData() ERROR")
 			print(str(e))
 			return []
 
@@ -481,12 +482,13 @@ class ScrollTime():
 	
 	# Used to reset the image on the display.
 	def refresh(self):
-		self.image_composition.remove_image(self.IDestination)
-		self.image_composition.remove_image(self.IServiceNumber)
-		self.image_composition.remove_image(self.IDisplayTime)
-		self.image_composition.add_image(self.IDestination)
-		self.image_composition.add_image(self.IServiceNumber)
-		self.image_composition.add_image(self.IDisplayTime)
+		if hasattr(self, 'IDestination') and  hasattr(self, 'IServiceNumber') and hasattr(self, 'IDisplayTime'):
+			self.image_composition.remove_image(self.IDestination)
+			self.image_composition.remove_image(self.IServiceNumber)
+			self.image_composition.remove_image(self.IDisplayTime)
+			self.image_composition.add_image(self.IDestination)
+			self.image_composition.add_image(self.IServiceNumber)
+			self.image_composition.add_image(self.IDisplayTime)
 
 	# Used to add a partner; this is the row below it self. Used when needed to tell partner to redraw itself
 	# on top of the row above it (layering the text boxes correctly)
