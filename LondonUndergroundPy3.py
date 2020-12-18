@@ -325,8 +325,8 @@ class ScrollTime():
 		self.state = self.SCROLL_DECIDER
 		self.synchroniser.ready(self)
 		#Need to regenerate both because the width of the time displayed can shrink. 
-		self.image_composition.remove_image(self.IDisplayTime)
 		self.image_composition.remove_image(self.IDestination)
+		self.image_composition.remove_image(self.IDisplayTime)
 		self.image_composition.refresh()
 
 		displayTimeTemp = TextImage(device, newService.DisplayTime)
