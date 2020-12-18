@@ -63,6 +63,7 @@ parser.add_argument('--Warning', dest='warning', default=False, action='store_tr
 parser.add_argument("--Display", default="ssd1322", choices=['ssd1322','pygame','capture','gifanim'], help="Used for development purposes, allows you to switch from a physical display to a virtual emulated one; default 'ssd1322'")
 parser.add_argument("--max-frames", default=60,dest='maxframes', type=check_positive, help="Used only when using gifanim emulator, sets how long the gif should be.")
 parser.add_argument("--no-console-output",dest='NoConsole', action='store_true', help="Used to stop the program outputting anything to console to isn't an error message, you might want to do this if your logging the program output into a file to record crashes.")
+parser.add_argument("--filename",dest='filename', default="output.gif", help="Used mainly for development, if using a gifanim display, this can be used to set the output gif file name, this should always end in .gif.")
 
 
 # Defines all required paramaters
@@ -670,7 +671,8 @@ def print_safe(msg):
 ###
 DisplayParser = cmdline.create_parser(description='Dynamically connect to either a vritual or physical display.')
 device = cmdline.create_device( DisplayParser.parse_args(['--display', str(Args.Display),'--interface','spi','--width','256','--rotate',str(Args.Rotation),'--max-frames',str(Args.maxframes)]))
-
+if Args.Display == 'gifanim':
+	device._filename  = str(Args.filename)
 
 image_composition = ImageComposition(device)
 board = boardFixed(image_composition,Args.Delay,device)
