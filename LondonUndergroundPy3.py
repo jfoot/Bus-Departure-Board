@@ -59,7 +59,7 @@ parser.add_argument('--ShowIndex', dest='ShowIndex', action='store_true',help="D
 parser.add_argument("--IncreasedAnimations", help="If you wish to show an additional animation message which shows 'This is a [Line Name] line train, to [destination]' turn it on with the following; by default this animation isn't shown as it will be the same for a lot of services.", dest='ReducedAnimations', action='store_false', default=True)
 parser.add_argument("--FixNextToArrive",dest='FixToArrive', action='store_true', default=False, help="Keep the train next arrive at the very top of the display until it has left; by default false")
 parser.add_argument('--no-splashscreen', dest='SplashScreen', action='store_false',help="Do you wish to see the splash screen at start up; recommended and on by default.")
-parser.add_argument('--no-warning', dest='warning', default=False, action='store_true',help="Do you want the warning 'STAND BACK TRAIN APPROACHING' message to flash; on by default.")
+parser.add_argument('--Warning', dest='warning', default=False, action='store_true',help="Do you want the warning 'STAND BACK TRAIN APPROACHING' message to flash; off by default.")
 parser.add_argument("--Display", default="ssd1322", choices=['ssd1322','pygame','capture','gifanim'], help="Used for development purposes, allows you to switch from a physical display to a virtual emulated one; default 'ssd1322'")
 parser.add_argument("--max-frames", default=60,dest='maxframes', type=check_positive, help="Used only when using gifanim emulator, sets how long the gif should be.")
 parser.add_argument("--no-console-output",dest='NoConsole', action='store_true', help="Used to stop the program outputting anything to console to isn't an error message, you might want to do this if your logging the program output into a file to record crashes.")
@@ -67,8 +67,8 @@ parser.add_argument("--no-console-output",dest='NoConsole', action='store_true',
 
 # Defines all required paramaters
 requiredNamed = parser.add_argument_group('required named arguments')
-requiredNamed.add_argument("-k","--APIKey", help="Your Transport for London API Key, you can get your own at: https://api-portal.tfl.gov.uk/login", type=str,required=True)
-requiredNamed.add_argument("-a","--APIID", help="Your Transport for London App ID, you can get your own at: https://api-portal.tfl.gov.uk/login", type=str,required=True)
+requiredNamed.add_argument("-k","--APIKey", help="Your Transport for London API Key, you can get your own at: https://api-portal.tfl.gov.uk/signup", type=str,required=True)
+requiredNamed.add_argument("-a","--APIID", help="Your Transport for London App ID, you can get your own at: https://api-portal.tfl.gov.uk/signup", type=str,required=True)
 requiredNamed.add_argument("-s","--StationID", help="The London Underground Code for the specific station you wish to display.", type=str,required=True)
 Args = parser.parse_args()
 
@@ -324,12 +324,18 @@ class ScrollTime():
 	def updateCard(self, newService, device):
 		self.state = self.SCROLL_DECIDER
 		self.synchroniser.ready(self)
+		#Need to regenerate both because the width of the time displayed can shrink. 
 		self.image_composition.remove_image(self.IDisplayTime)
+		self.image_composition.remove_image(self.IDestination)
 
 		displayTimeTemp = TextImage(device, newService.DisplayTime)
 		self.IDisplayTime = ComposableImage(displayTimeTemp.image, position=(device.width - displayTimeTemp.width, 16 * self.position))
 
-		self.image_composition.add_image(self.IDisplayTime)
+		IDestinationTemp  = TextImageComplex(device, newService.Destination,newService.Via, displayTimeTemp.width)
+		self.IDestination =  ComposableImage(IDestinationTemp.image.crop((0,0,IDestinationTemp.width + 10,16)), position=(0, 16 * self.position))
+
+		self.image_composition.add_image(self.IDestination)
+		self.image_composition.add_image(self.IDisplayTime)	
 		self.image_composition.refresh()
 
 	# Called when you want to change the row from one service to another.
@@ -624,7 +630,7 @@ class boardFixed():
 				else:
 					card.changeCard(self.Services[self.x % len(self.Services)],device)
 		
-		if not Args.warning:
+		if Args.warning:
 			if self.Services[0].TimeInMin() <= Args.WarningTime:
 				self.bottom.SetTrainApproaching()
 			else:
