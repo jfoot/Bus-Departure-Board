@@ -7,6 +7,7 @@
 import time
 import inspect,os
 import sys
+import subprocess
 import argparse
 from urllib.request import urlopen
 from PIL import ImageFont, Image, ImageDraw
@@ -646,6 +647,7 @@ def Splash():
 
 try:
 	Splash()
+	subprocess.call("./updateScript.sh", shell=True)
 	# Run the program forever		
 	while True:
 		time.sleep(0.02)
@@ -659,9 +661,10 @@ try:
 		if (Args.EnergySaverMode != "none" and is_time_between()):
 			# Check for program updates and restart the pi every 'UpdateDays' Days.
 			if (datetime.now().date() - StartUpDate).days >= Args.UpdateDays:
-				print_safe("Checking for updates and then restarting Pi.")
-				os.system("sudo git -C %s pull; sudo reboot" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))))
-				sys.exit()
+				subprocess.call("./updateScript.sh", shell=True)
+				# print_safe("Checking for updates and then restarting Pi.")
+				# os.system("sudo git -C %s pull; sudo reboot" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))))
+				# sys.exit()
 			if Args.EnergySaverMode == "dim":
 				if energyMode == "normal":
 					device.contrast(15)
