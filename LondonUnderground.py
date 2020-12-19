@@ -2,19 +2,18 @@
 # Project Website : https://departureboard.jonathanfoot.com
 # Documentation   : https://jonathanfoot.com/Projects/DepartureBoard
 # Description     :  This program allows you to display a live London Underground departure board for any Tube station.
+# Python 2 Required (Deprecated)
 
 import json
 import urllib2
 import time
-import math
 import inspect,os
 import sys
 import argparse
 from PIL import ImageFont, Image, ImageDraw
 from luma.core.render import canvas
-from luma.core.interface.serial import spi
-from luma.core import cmdline, error
-from datetime import datetime, date
+from luma.core import cmdline
+from datetime import datetime
 from luma.core.image_composition import ImageComposition, ComposableImage
 
 ###
@@ -63,6 +62,7 @@ parser.add_argument('--no-splashscreen', dest='SplashScreen', action='store_fals
 parser.add_argument('--no-warning', dest='warning', default=False, action='store_true',help="Do you want the warning 'STAND BACK TRAIN APPROACHING' message to flash; on by default.")
 parser.add_argument("--Display", default="ssd1322", choices=['ssd1322','pygame','capture','gifanim'], help="Used for development purposes, allows you to switch from a physical display to a virtual emulated one; default 'ssd1322'")
 parser.add_argument("--max-frames", default=60,dest='maxframes', type=check_positive, help="Used only when using gifanim emulator, sets how long the gif should be.")
+parser.add_argument("--Acknowledge-Deprecated", dest='acknowledgeDep', action='store_true', help="ATTENTION - You are acknowledging you understand this version of the program is deprecated and is not supported anymore. Doing this will hide the update message, but does mean you won't get any more updates.")
 
 # Defines all required paramaters
 requiredNamed = parser.add_argument_group('required named arguments')
@@ -668,7 +668,12 @@ StartUpDate = datetime.now().date()
 # Draws the clock and tells the rest of the display next frame wanted.
 def display():
 	board.tick()
-	msgTime = str(datetime.now().strftime("%H:%M:%S" if (Args.TimeFormat==24) else "%I:%M:%S"))	
+	msgTime = ''
+	if Args.acknowledgeDep:
+		msgTime = str(datetime.now().strftime("%H:%M:%S" if (Args.TimeFormat==24) else "%I:%M:%S"))	
+	else:
+		msgTime = 'update.jonathanfoot.com'
+	
 	with canvas(device, background=image_composition()) as draw:
 		image_composition.refresh()
 		draw.multiline_text(((device.width - draw.textsize(msgTime, FontTime)[0])/2, device.height-16), msgTime, font=FontTime, align="center")
@@ -683,6 +688,7 @@ def Splash():
 
 
 try:
+	print "\033[1;31m DEPRECATED WARNING: THIS VERSION OF THE SOFTWARE IS NO LONGER SUPPORTED, IT IS STRONGLY RECOMMEND YOU MANUALLY UPGRADE IT. MORE INFORMATION CAN BE FOUND AT UPDATE.JONATHANFOOT.COM\033[0;0m"
 	Splash()
 	# Run the program forever		
 	while True:
@@ -696,7 +702,7 @@ try:
 		# Turns the display into one of the energy saving modes if in the correct time and enabled.
 		if (Args.EnergySaverMode != "none" and is_time_between()):
 			# Check for program updates and restart the pi every 'UpdateDays' Days.
-			if (datetime.now().date() - StartUpDate).days >= Args.UpdateDays:
+			if (datetime.now().date() - StartUpDate).days >= Args.UpdateDays and not Args.acknowledgeDep:
 				print "Checking for updates and then restarting Pi."
 				os.system("sudo git -C %s pull; sudo reboot" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))))
 				sys.exit()

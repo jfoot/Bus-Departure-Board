@@ -1,14 +1,14 @@
-# This software was produced by Jonathan Foot (c) 2019, all rights reserved.
+# This software was produced by Jonathan Foot (c) 2021, all rights reserved.
 # Project Website : https://departureboard.jonathanfoot.com
 # Documentation   : https://jonathanfoot.com/Projects/DepartureBoard
-# Description     : This program allows you to display demo a bus departure board for an example Reading Buses stop.
-# Python 2 Required (Deprecated)
+# Description     : This program allows you to display demo a bus departure board for an example Reading Buses stop. 
+# Python 3 Required.
 
-import urllib2
 import time
 import inspect,os
 import sys
 import argparse
+from urllib.request import urlopen
 from PIL import ImageFont, Image, ImageDraw
 from luma.core.render import canvas
 from luma.core.interface.serial import spi
@@ -52,7 +52,7 @@ parser.add_argument("-l","--RequestLimit", help="Defines the minium amount of ti
 parser.add_argument("-z","--StaticUpdateLimit", help="Defines the amount of time the display will wait before updating the expected arrival time (based upon it's last known predicted arrival time); default is  15(seconds), this should be lower than your 'RequestLimit'", type=check_positive,default=15)
 parser.add_argument("-e","--EnergySaverMode", help="To save screen from burn in and prolong it's life it is recommend to have energy saving mode enabled. 'off' is default, between the hours set the screen will turn off. 'dim' will turn the screen brightness down, but not completely off. 'none' will do nothing and leave the screen on; this is not recommend, you can change your active hours instead.", type=str,choices=["none","dim","off"],default="off")
 parser.add_argument("-i","--InactiveHours", help="The period of time for which the display will go into 'Energy Saving Mode' if turned on; default is '23:00-07:00'", type=check_time,default="23:00-07:00")
-parser.add_argument("-u","--UpdateDays", help="The number of days for which the Pi will wait before rebooting and checking for a new update again during your energy saving period; default 3 days.", type=check_positive, default=3)
+parser.add_argument("-u","--UpdateDays", help="The number of days for which the Pi will wait before rebooting and checking for a new update again during your energy saving period; default 1 days (every night check).", type=check_positive, default=1)
 parser.add_argument("-x","--ExcludeServices", default="", help="List any services you do not wish to view. Make sure to capitalise correctly and simply put a single space between each; default is nothing, ie show every service.",  nargs='*')
 parser.add_argument('--ShowIndex', dest='ShowIndex', action='store_true',help="Do you wish to see index position for each service due to arrive.")
 parser.add_argument("--ReducedAnimations", help="If you wish to stop the Via animation and cycle faster through the services use this tag to turn the animation off.", dest='ReducedAnimations', action='store_true')
@@ -61,7 +61,9 @@ parser.add_argument("--HideUnknownVias", help="If the API does not report any kn
 parser.add_argument('--no-splashscreen', dest='SplashScreen', action='store_false',help="Do you wish to see the splash screen at start up; recommended and on by default.")
 parser.add_argument("--Display", default="ssd1322", choices=['ssd1322','pygame','capture','gifanim'], help="Used for development purposes, allows you to switch from a physical display to a virtual emulated one; default 'ssd1322'")
 parser.add_argument("--max-frames", default=60,dest='maxframes', type=check_positive, help="Used only when using gifanim emulator, sets how long the gif should be.")
-parser.add_argument("--Acknowledge-Deprecated", dest='acknowledgeDep', action='store_true', help="ATTENTION - You are acknowledging you understand this version of the program is deprecated and is not supported anymore. Doing this will hide the update message, but does mean you won't get any more updates.")
+parser.add_argument("--no-console-output",dest='NoConsole', action='store_true', help="Used to stop the program outputting anything to console that isn't an error message, you might want to do this if your logging the program output into a file to record crashes.")
+parser.add_argument("--filename",dest='filename', default="output.gif", help="Used mainly for development, if using a gifanim display, this can be used to set the output gif file name, this should always end in .gif.")
+
 Args = parser.parse_args()
 
 ## Defines all the programs "global" variables 
@@ -138,23 +140,24 @@ class LiveTime(object):
 		services = []
 
 		try:
-			raw = urllib2.urlopen("https://jonathanfoot.com/Projects/DepartureBoard/Assets/demoFile.xml").read()
-			rawServices = objectify.fromstring(raw)
-		
-			# The Reading Buses API sometimes reports the same bus multiple times. To work around this we need to check if we have already found it.
-			for root in rawServices.ServiceDelivery.StopMonitoringDelivery.MonitoredStopVisit:
-				service = root.MonitoredVehicleJourney
-				exists = False
-				for current in services:
-					if current.ID == service.FramedVehicleJourneyRef.DatedVehicleJourneyRef:
-						exists = True
-						break
-				# If not already recorded and not in the excluded services list add it.
-				if exists == False and str(service.LineRef) not in Args.ExcludeServices:
-					# Convert the custom Reading Buses API object into a LiveTime object and add it to the list.
-					services.append(LiveTime(service, len(services)))
+			with urlopen("https://jonathanfoot.com/Projects/DepartureBoard/Assets/demoFile.xml") as conn:
+				rawServices = objectify.fromstring(conn.read())
+			
+				# The Reading Buses API sometimes reports the same bus multiple times. To work around this we need to check if we have already found it.
+				for root in rawServices.ServiceDelivery.StopMonitoringDelivery.MonitoredStopVisit:
+					service = root.MonitoredVehicleJourney
+					exists = False
+					for current in services:
+						if current.ID == service.FramedVehicleJourneyRef.DatedVehicleJourneyRef:
+							exists = True
+							break
+					# If not already recorded and not in the excluded services list add it.
+					if exists == False and str(service.LineRef) not in Args.ExcludeServices:
+						# Convert the custom Reading Buses API object into a LiveTime object and add it to the list.
+						services.append(LiveTime(service, len(services)))
 			return services
 		except Exception as e:
+			print("GetData() ERROR")
 			print(str(e))
 			return []
 
@@ -555,7 +558,7 @@ class boardFixed():
 			self.x = 1 if Args.FixToArrive else 0
 			if LiveTime.TimePassed():  
 				self.Services = LiveTime.GetData()
-				# print("New Data Retrieved %s" % datetime.now().time())
+				print_safe("New Data Retrieved %s" % datetime.now().time())
 		
 		# If there are more rows (3) than there is services scheduled show nothing.
 		if row > len(self.Services):       
@@ -602,12 +605,20 @@ def is_time_between():
 		return check_time >= Args.InactiveHours[0] or check_time <= Args.InactiveHours[1]
 
 
+
+# Checks that the user has allowed outputting to console.
+def print_safe(msg):
+	if not Args.NoConsole:
+		print(msg)
+
 ###
 ## Main
 ## Connects to the display and makes it update forever until ended by the user with a ctrl-c
 ###
 DisplayParser = cmdline.create_parser(description='Dynamically connect to either a vritual or physical display.')
 device = cmdline.create_device( DisplayParser.parse_args(['--display', str(Args.Display),'--interface','spi','--width','256','--rotate',str(Args.Rotation),'--max-frames',str(Args.maxframes)]))
+if Args.Display == 'gifanim':
+	device._filename  = str(Args.filename)
 
 
 image_composition = ImageComposition(device)
@@ -620,12 +631,7 @@ StartUpDate = datetime.now().date()
 # Draws the clock and tells the rest of the display next frame wanted.
 def display():
 	board.tick()
-	msgTime = ''
-	if Args.acknowledgeDep:
-		msgTime = str(datetime.now().strftime("%H:%M" if (Args.TimeFormat==24) else "%I:%M"))	
-	else:
-		msgTime = 'update.jonathanfoot.com'
-
+	msgTime = str(datetime.now().strftime("%H:%M" if (Args.TimeFormat==24) else "%I:%M"))	
 	with canvas(device, background=image_composition()) as draw:
 		image_composition.refresh()
 		draw.multiline_text(((device.width - draw.textsize(msgTime, FontTime)[0])/2, device.height-16), msgTime, font=FontTime, align="center")
@@ -635,12 +641,10 @@ def Splash():
 	if Args.SplashScreen:
 		with canvas(device) as draw:
 			draw.multiline_text((64, 10), "Departure Board", font= ImageFont.truetype("%s/resources/Bold.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),20), align="center")
-			draw.multiline_text((45, 35), "Version : 1.5.EX -  By Jonathan Foot", font=ImageFont.truetype("%s/resources/Skinny.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
+			draw.multiline_text((45, 35), "Version : 2.0.EX -  By Jonathan Foot", font=ImageFont.truetype("%s/resources/Skinny.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
 		time.sleep(5) #Wait such a long time to allow the device to startup and connect to a WIFI source first.
 
-
 try:
-	print "\033[1;31m DEPRECATED WARNING: THIS VERSION OF THE SOFTWARE IS NO LONGER SUPPORTED, IT IS STRONGLY RECOMMEND YOU MANUALLY UPGRADE IT. MORE INFORMATION CAN BE FOUND AT UPDATE.JONATHANFOOT.COM\033[0;0m"
 	Splash()
 	# Run the program forever		
 	while True:
@@ -654,8 +658,8 @@ try:
 		# Turns the display into one of the energy saving modes if in the correct time and enabled.
 		if (Args.EnergySaverMode != "none" and is_time_between()):
 			# Check for program updates and restart the pi every 'UpdateDays' Days.
-			if (datetime.now().date() - StartUpDate).days >= Args.UpdateDays and not Args.acknowledgeDep:
-				print "Checking for updates and then restarting Pi."
+			if (datetime.now().date() - StartUpDate).days >= Args.UpdateDays:
+				print_safe("Checking for updates and then restarting Pi.")
 				os.system("sudo git -C %s pull; sudo reboot" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))))
 				sys.exit()
 			if Args.EnergySaverMode == "dim":

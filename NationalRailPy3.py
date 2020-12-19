@@ -1,8 +1,8 @@
-# This software was produced by Jonathan Foot (c) 2019, all rights reserved.
+# This software was produced by Jonathan Foot (c) 2021, all rights reserved.
 # Project Website : https://departureboard.jonathanfoot.com
 # Documentation   : https://jonathanfoot.com/Projects/DepartureBoard
 # Description     : This program allows you to display a live train departure board for any UK station nationally, excluding the London Underground.
-# Python 2 Required (Deprecated)
+# Python 3 Required.
 
 import time
 import inspect,os
@@ -53,7 +53,7 @@ parser.add_argument("-l","--RequestLimit", help="Defines the minium amount of ti
 parser.add_argument("-z","--StaticUpdateLimit", help="Defines the amount of time the display will wait before updating the expected arrival time (based upon it's last known predicted arrival time); default is  15(seconds), this should be lower than your 'RequestLimit'", type=check_positive,default=15)
 parser.add_argument("-e","--EnergySaverMode", help="To save screen from burn in and prolong it's life it is recommend to have energy saving mode enabled. 'off' is default, between the hours set the screen will turn off. 'dim' will turn the screen brightness down, but not completely off. 'none' will do nothing and leave the screen on; this is not recommend, you can change your active hours instead.", type=str,choices=["none","dim","off"],default="off")
 parser.add_argument("-i","--InactiveHours", help="The period of time for which the display will go into 'Energy Saving Mode' if turned on; default is '23:00-07:00'", type=check_time,default="23:00-07:00")
-parser.add_argument("-u","--UpdateDays", help="The number of days for which the Pi will wait before rebooting and checking for a new update again during your energy saving period; default 3 days.", type=check_positive, default=3)
+parser.add_argument("-u","--UpdateDays", help="The number of days for which the Pi will wait before rebooting and checking for a new update again during your energy saving period; default 1 day (every day check).", type=check_positive, default=1)
 parser.add_argument("-x","--ExcludedPlatforms", default="", help="List any platforms you do not wish to view. Make sure to capitalise correctly and simply put a single space between each; default is nothing, ie show every platform.",  nargs='*')
 parser.add_argument("-q","--Header", default="desc", choices=['desc','loc','date','none'],help="Defines the design for the top row/ header of the display. desc- List the purpose of each column. loc- Names the location of the station above. date- List the date at the top. none-Keeps the header blank. default is desc.")
 parser.add_argument("-m","--Design", default='full', help="Alters the design of the display, full- shows both scheduled and expected arrival time. compact- shows only the expected time (like a bus display); default is 'full'",  choices=['full','compact'])
@@ -65,7 +65,9 @@ parser.add_argument("--FixNextToArrive",dest='FixToArrive', action='store_true',
 parser.add_argument('--no-splashscreen', dest='SplashScreen', action='store_false',help="Do you wish to see the splash screen at start up; recommended and on by default.")
 parser.add_argument("--Display", default="ssd1322", choices=['ssd1322','pygame','capture','gifanim'], help="Used for development purposes, allows you to switch from a physical display to a virtual emulated one; default 'ssd1322'")
 parser.add_argument("--max-frames", default=60,dest='maxframes', type=check_positive, help="Used only when using gifanim emulator, sets how long the gif should be.")
-parser.add_argument("--Acknowledge-Deprecated", dest='acknowledgeDep', action='store_true', help="ATTENTION - You are acknowledging you understand this version of the program is deprecated and is not supported anymore. Doing this will hide the update message, but does mean you won't get any more updates.")
+parser.add_argument("--no-console-output",dest='NoConsole', action='store_true', help="Used to stop the program outputting anything to console that isn't an error message, you might want to do this if your logging the program output into a file to record crashes.")
+parser.add_argument("--filename",dest='filename', default="output.gif", help="Used mainly for development, if using a gifanim display, this can be used to set the output gif file name, this should always end in .gif.")
+
 
 # Defines the required paramaters
 requiredNamed = parser.add_argument_group('required named arguments')
@@ -193,6 +195,7 @@ class LiveTime(object):
                     return ExpTime
                 return  ' %d min' % Diff
             except Exception as e:
+                print("GetExptTime() ERROR")
                 print(str(e))
                 return ExpTime
 
@@ -229,6 +232,7 @@ class LiveTime(object):
 
             return services
         except Exception as e:
+            print("GetData() ERROR")
             print(str(e))
             return []
 
@@ -569,10 +573,11 @@ class ScrollTime():
 
    	# Used to reset the image on the display. 
     def refresh(self):
-        self.image_composition.remove_image(self.IDisplayText)
-        self.image_composition.remove_image(self.IDisplayTime)
-        self.image_composition.add_image(self.IDisplayText)
-        self.image_composition.add_image(self.IDisplayTime)
+        if hasattr(self, 'IDisplayText') and  hasattr(self, 'IDisplayTime'):
+            self.image_composition.remove_image(self.IDisplayText)
+            self.image_composition.remove_image(self.IDisplayTime)
+            self.image_composition.add_image(self.IDisplayText)
+            self.image_composition.add_image(self.IDisplayTime)
 
 	# Used to add a partner; this is the row below it self. Used when needed to tell partner to redraw itself
 	# on top of the row above it (layering the text boxes correctly)
@@ -647,7 +652,7 @@ class boardFixed():
             self.x = 1 if Args.FixToArrive else 0
             if LiveTime.TimePassed():  
                 self.Services = LiveTime.GetData()
-                print("New Data Retrieved %s" % datetime.now().time())
+                print_safe("New Data Retrieved %s" % datetime.now().time())
 
         # If there are more rows (3) than there is services scheduled show nothing.
         if row > len(self.Services):       
@@ -713,7 +718,10 @@ def is_time_between():
     else: # crosses midnight
         return check_time >= Args.InactiveHours[0] or check_time <= Args.InactiveHours[1]
 
-
+# Checks that the user has allowed outputting to console.
+def print_safe(msg):
+	if not Args.NoConsole:
+		print(msg)
 
 ###
 ## Main
@@ -721,7 +729,8 @@ def is_time_between():
 ###
 DisplayParser = cmdline.create_parser(description='Dynamically connect to either a virtual or physical display.')
 device = cmdline.create_device( DisplayParser.parse_args(['--display', str(Args.Display),'--interface','spi','--width','256','--rotate',str(Args.Rotation),'--max-frames',str(Args.maxframes)]))
-
+if Args.Display == 'gifanim':
+	device._filename  = str(Args.filename)
 
 image_composition = ImageComposition(device)
 board = boardFixed(image_composition,Args.Delay,device)
@@ -733,10 +742,7 @@ StartUpDate = datetime.now().date()
 # Draws the clock and tells the rest of the display next frame wanted.
 def display():
     board.tick()
-    if Args.acknowledgeDep:
-	    msgTime = str(datetime.now().strftime("%H:%M:%S" if (Args.TimeFormat==24) else "%I:%M:%S"))	
-    else:
-	    msgTime = 'update.jonathanfoot.com' 
+    msgTime = str(datetime.now().strftime("%H:%M:%S" if (Args.TimeFormat==24) else "%I:%M:%S"))	
     with canvas(device, background=image_composition()) as draw:
         image_composition.refresh()
         draw.multiline_text((0, 0), board.GetHeader(), font=BasicFont)
@@ -747,12 +753,11 @@ def Splash():
     if Args.SplashScreen:
         with canvas(device) as draw:
             draw.multiline_text((64, 10), "Departure Board", font= ImageFont.truetype("%s/resources/Bold.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),20), align="center")
-            draw.multiline_text((45, 35), "Version : 1.4.NR -  By Jonathan Foot", font=ImageFont.truetype("%s/resources/Skinny.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
+            draw.multiline_text((45, 35), "Version : 2.1.NR -  By Jonathan Foot", font=ImageFont.truetype("%s/resources/Skinny.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
         time.sleep(30) #Wait such a long time to allow the device to startup and connect to a WIFI source first.
 
 
 try:
-    print "\033[1;31m DEPRECATED WARNING: THIS VERSION OF THE SOFTWARE IS NO LONGER SUPPORTED, IT IS STRONGLY RECOMMEND YOU MANUALLY UPGRADE IT. MORE INFORMATION CAN BE FOUND AT UPDATE.JONATHANFOOT.COM\033[0;0m"
     Splash() 
  	# Run the program forever		       
     while True:
@@ -766,8 +771,8 @@ try:
 		# Turns the display into one of the energy saving modes if in the correct time and enabled.
         if (Args.EnergySaverMode != "none" and is_time_between()):
             # Check for program updates and restart the pi every 'UpdateDays' Days.
-            if (datetime.now().date() - StartUpDate).days >= Args.UpdateDays and not Args.acknowledgeDep:
-                print "Checking for updates and then restarting Pi."
+            if (datetime.now().date() - StartUpDate).days >= Args.UpdateDays:
+                print_safe("Checking for updates and then restarting Pi.")
                 os.system("sudo git -C %s pull; sudo reboot" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))))
                 sys.exit()
             if Args.EnergySaverMode == "dim":
