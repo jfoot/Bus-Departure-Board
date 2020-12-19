@@ -631,8 +631,7 @@ StartUpDate = datetime.now().date()
 # Draws the clock and tells the rest of the display next frame wanted.
 def display():
 	board.tick()
-	#msgTime = str(datetime.now().strftime("%H:%M" if (Args.TimeFormat==24) else "%I:%M"))	
-	msgTime = "TEST"
+	msgTime = str(datetime.now().strftime("%H:%M" if (Args.TimeFormat==24) else "%I:%M"))	
 	with canvas(device, background=image_composition()) as draw:
 		image_composition.refresh()
 		draw.multiline_text(((device.width - draw.textsize(msgTime, FontTime)[0])/2, device.height-16), msgTime, font=FontTime, align="center")
