@@ -1,4 +1,5 @@
 #!/bin/sh
+sudo git remote update
 
 UPSTREAM=${1:-'@{u}'}
 LOCAL=$(sudo git rev-parse @)
@@ -11,7 +12,7 @@ elif [ $LOCAL = $BASE ]; then
     echo "Program Update in progress..."
     sudo git pull
     echo "Device restarting now."
-    sudo restart now
+    sudo reboot
 elif [ $REMOTE = $BASE ]; then
     echo "You've made local changes which is stopping the ability to update your device. Please use 'git stash' if your unsure on what to do."
 else
