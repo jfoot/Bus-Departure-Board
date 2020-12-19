@@ -32,6 +32,7 @@ If you're currently using the Python2 versions and would like to upgrade to Pyth
 ## Bug Reporting
 If you've found a bug and would like to report it please create a GitHub issue or send me an email about it and if I'm not to busy I will try to fix it.
 
+
 ## Example Video
 [![Watch demostration video here](https://img.youtube.com/vi/9egAmw3UAvU/0.jpg)](https://www.youtube.com/watch?v=9egAmw3UAvU)
 
