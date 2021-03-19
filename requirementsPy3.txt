@@ -7,7 +7,7 @@ luma.oled==3.8.1
 lxml==4.6.2
 nre-darwin-py==0.3.0
 numpy==1.16.2
-Pillow==8.1.1
+Pillow==8.1.2
 pip-tools==5.4.0
 pygame==2.0.0
 pyserial==3.5
