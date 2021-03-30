@@ -4,7 +4,7 @@ luma.emulator==1.2.0
 luma.oled==3.3.0          
 lxml==4.6.2               
 nre_darwin_py==0.2.0      
-pillow==8.0.1            
+pillow==8.1.1            
 pyftdi==0.52.0            
 pygame==1.9.4             
 pyserial==3.5             
