@@ -4,7 +4,7 @@ inflect==5.0.2
 luma.core==2.1.0
 luma.emulator==1.3.0
 luma.oled==3.8.1
-lxml==4.6.2
+lxml==4.6.3
 nre-darwin-py==0.3.0
 numpy==1.16.2
 Pillow==8.1.2
