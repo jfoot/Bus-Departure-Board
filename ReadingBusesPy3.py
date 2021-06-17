@@ -66,7 +66,7 @@ parser.add_argument("--filename", dest='filename', default="output.gif", help="U
 
 # Defines all required paramaters
 requiredNamed = parser.add_argument_group('required named arguments')
-requiredNamed.add_argument("-k","--APIKey", help="Your Reading Buses API Key, you can get your own from: http://rtl2.ods-live.co.uk/cms/apiservice", type=str,required=True)
+requiredNamed.add_argument("-k","--APIKey", help="Your Reading Buses API Key, you can get your own from: https://reading-opendata.r2p.com", type=str,required=True)
 requiredNamed.add_argument("-s","--StopID", help="The Naptan Code for the specific bus stop you wish to display.", type=str,required=True)
 Args = parser.parse_args()
 
@@ -144,22 +144,29 @@ class LiveTime(object):
 		services = []
 
 		try:
-			with urlopen("https://rtl2.ods-live.co.uk/api/siri/sm?key=%s&location=%s" % (Args.APIKey, Args.StopID)) as conn:
+			with urlopen("https://reading-opendata.r2p.com/api/v1/siri-sm?api_token=%s&location=%s" % (Args.APIKey, Args.StopID)) as conn:
 				raw = conn.read()
-				rawServices = objectify.fromstring(raw)
-			
-				# The Reading Buses API sometimes reports the same bus multiple times. To work around this we need to check if we have already found it.
-				for root in rawServices.ServiceDelivery.StopMonitoringDelivery.MonitoredStopVisit:
-					service = root.MonitoredVehicleJourney
-					exists = False
-					for current in services:
-						if current.ID == service.FramedVehicleJourneyRef.DatedVehicleJourneyRef:
-							exists = True
-							break
-					# If not already recorded and not in the excluded services list add it.
-					if exists == False and str(service.LineRef) not in Args.ExcludeServices:
-						# Convert the custom Reading Buses API object into a LiveTime object and add it to the list.
-						services.append(LiveTime(service, len(services)))
+
+				if conn.getcode() != 200:
+					return services
+				
+				try:
+					rawServices = objectify.fromstring(raw)
+				
+					# The Reading Buses API sometimes reports the same bus multiple times. To work around this we need to check if we have already found it.
+					for root in rawServices.ServiceDelivery.StopMonitoringDelivery.MonitoredStopVisit:
+						service = root.MonitoredVehicleJourney
+						exists = False
+						for current in services:
+							if current.ID == service.FramedVehicleJourneyRef.DatedVehicleJourneyRef:
+								exists = True
+								break
+						# If not already recorded and not in the excluded services list add it.
+						if exists == False and str(service.LineRef) not in Args.ExcludeServices:
+							# Convert the custom Reading Buses API object into a LiveTime object and add it to the list.
+							services.append(LiveTime(service, len(services)))
+				except Exception as e:
+					print("Unable to parse XML data, is your API Key correct?")
 			return services
 		except Exception as e:
 			print("GetData() ERROR")
