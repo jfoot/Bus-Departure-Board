@@ -156,6 +156,9 @@ class LiveTime(object):
 	# The "Via" message is not given by the API, this method generates the Via message and returns it.
 	def GetComplexVia(self, Service):
 		Via = ""
+
+
+
 		if Args.ShowOperator or Args.ViaMessageMode == "operator":
 			Via = "This is a " + self.Operator + " Service"
 		

@@ -1,0 +1,24 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: Current File",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/ReadingBusesPy3.py",
+            "console": "integratedTerminal",
+            "args" : ["-k", "wHe3RGYnfpKJwizMWzCoQmdvj9QMaUkPAfbJ120nhOckq1xIEvyqFer89A3c", "-s", "039028160001", "--Display", "pygame",  "--no-splashscreen", "-m", "fixed"]
+        },
+        // {
+        //     "name": "National Buses",
+        //     "type": "python",
+        //     "request": "launch",
+        //     "program": "${workspaceFolder}/NationalBusesPy3.py",
+        //     "console": "integratedTerminal",
+        //     "args" : ["-a", "b9efaa96", "-k" ,"ca254dcc1719fbf790bfc9d74b420d2e", "-s" ,"3390LE01", "--Display", "pygame",  "--no-splashscreen"]
+        // }
+    ]
+}

@@ -8,6 +8,7 @@ import time
 import inspect,os
 import sys
 import argparse
+import json
 from urllib.request import urlopen
 from PIL import ImageFont, Image, ImageDraw
 from luma.core.render import canvas
@@ -53,14 +54,9 @@ parser.add_argument("-e","--EnergySaverMode", help="To save screen from burn in 
 parser.add_argument("-i","--InactiveHours", help="The period of time for which the display will go into 'Energy Saving Mode' if turned on; default is '23:00-07:00'", type=check_time,default="23:00-07:00")
 parser.add_argument("-u","--UpdateDays", help="The number of days for which the Pi will wait before rebooting and checking for a new update again during your energy saving period; default 1 day (every day check).", type=check_positive, default=1)
 parser.add_argument("-x","--ExcludeServices", default="", help="List any services you do not wish to view. Make sure to capitalise correctly and simply put a single space between each; default is nothing, ie show every service.",  nargs='*')
-
-parser.add_argument("-m","--ViaMessageMode", choices=["full", "shorten", "reduced", "fixed", "operator"], default="fixed", help="The Transport API does not specifically store a bus routes 'Via' message. This message can be created instead using one of the following methods. full-the longest message contains both the county and suburb for each location. shorten- contains only the suburb (default). reduced- contains every C suburb visited where C is the ReducedValue 'c'. operator- only contains the name of the operator running the service. fixed- show at max F, where 'F' is the FixedLocations. This will take F locations evenly between all locations. You can also completely turn off this animation using the '--ReducedAnimations' tag.")
+parser.add_argument("-m","--ViaMessageMode", choices=["full", "reduced", "fixed"], default="fixed", help="The Reading Buses API no longer specifically store a bus routes 'Via' message. This message can be created instead using one of the following methods. full-the longest message contains every stop name. reduced- contains every C stop visited where C is the ReducedValue 'c'. fixed- show at max F, where 'F' is the FixedLocations. This will take F locations evenly between all locations. You can also completely turn off this animation using the '--ReducedAnimations' tag.")
 parser.add_argument("-c","--ReducedValue", type=check_positive, default=2, help="If you are using a 'reduced' via message this value is for every n suburbs visited report it in the via; default is 2 ie every other suburb visited report.")
-parser.add_argument("-o","--Destination", choices=["1","2"], default="1", help="Depending on the region the buses destination reported maybe a generic place holder location. If this is the case you can switch to mode 2 for the last stop name.")
 parser.add_argument("-f","--FixedLocations",type=check_positive, default=3, help="If you are using 'fixed' via message this value will limit the max number of via destinations. Taking F locations evenly between a route.")
-parser.add_argument("-g","--ServiceName", choices=["1","2"], default="1", help="Depending on the region the buses service number maybe different to the bus service name. If this is the case you can switch between bus service nummber or name to suit your preference.")
-
-
 parser.add_argument('--ShowIndex', dest='ShowIndex', action='store_true',help="Do you wish to see index position for each service due to arrive.")
 parser.add_argument("--ReducedAnimations", help="If you wish to stop the Via animation and cycle faster through the services use this tag to turn the animation off.", dest='ReducedAnimations', action='store_true')
 parser.add_argument("--UnfixNextToArrive",dest='FixToArrive', action='store_false', help="Keep the bus sonnest to next arrive at the very top of the display until it has left; by default true")
@@ -81,13 +77,10 @@ Args = parser.parse_args()
 ## Defines all the programs "global" variables 
 # Defines the basic font used throughout most of the text boxes in the program
 BasicFont = ImageFont.truetype("%s/resources/lower.ttf" %(os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) ),14)
-# Defines the place holder via message when one can not be found/ given in the API.
-GenericVia = "Via Central Reading"
 
 # To prevent unnecessary calls to the API we assume a service will always follow the same route throughout the day 
 # Once we have got the destination for that service and it's "Via" message we save it here to be looked up if needed again.
-Vias = {"0":"Via London Bridge"}
-Dest = {"0":"Central London"}
+Vias = {"0":"Via Central Reading"}
 
 
 ###
@@ -120,7 +113,7 @@ class LiveTime(object):
 		self.SchArrival = str(Data.MonitoredCall.AimedArrivalTime).split("+")[0]
 		self.ExptArrival = str(getattr( Data.MonitoredCall, "ExpectedArrivalTime", "")).split("+")[0]
 		# The "Via" message, which lists where the service will go through, if unknown use generic message.
-		self.Via = str(getattr(Data, "Via", GenericVia))
+		self.Via = self.GetComplexVia(str(Data.LineRef))
 		# The formated string containing the time of arrival, to be printed on the display screen.
 		self.DisplayTime = self.GetDisplayTime()
 		self.ID =  str(Data.FramedVehicleJourneyRef.DatedVehicleJourneyRef)
@@ -141,42 +134,76 @@ class LiveTime(object):
 				return ' ' + datetime.strptime(self.SchArrival, '%Y-%m-%dT%H:%M:%S').strftime("%H:%M" if (Args.TimeFormat==24) else  "%I:%M")
 			return  ' %d min' % Diff
 
+	# Gets a list of stops the bus service is yet to vist from the current stop.
+	def GetServiceLinePatteren(self, ServiceID):
+		try:
+			StopNames = list()
+			# Request the stops the service vists.
+			with urlopen("https://reading-opendata.r2p.com/api/v1/line-patterns?api_token=%s&line=%s" % (Args.APIKey, ServiceID)) as conn:
+				raw = conn.read()
+				# If HTTP failed.
+				if conn.getcode() != 200:
+					return StopNames
+				
+				stops = json.loads(raw)
+				try:
+					# Found the stop the service is currently at.
+					found = False
+			
+					for stop in stops:
+						#Add to the list all of the stops the service is yet to visit.
+						if found:
+							
+							stopNameSimp = str(stop['location_name']).title() 
 
+							# Removes any extra uneeded info from stop names to simplify them.
+							stopNameSimp = stopNameSimp.split("Opp" , 1)[0]
+							stopNameSimp = stopNameSimp.split("Adj" , 1)[0]
+							stopNameSimp = stopNameSimp.split("Stop" , 1)[0]
+							stopNameSimp = stopNameSimp.split("Adjacent" , 1)[0]
+							stopNameSimp = stopNameSimp.split("Opposite" , 1)[0]
+							stopNameSimp = stopNameSimp.split("N-Bound" , 1)[0]
+							stopNameSimp = stopNameSimp.split("Ne-Bound" , 1)[0]
+							stopNameSimp = stopNameSimp.split("Nw-Bound" , 1)[0]
+							stopNameSimp = stopNameSimp.split("S-Bound" , 1)[0]
+							stopNameSimp = stopNameSimp.split("Se-Bound" , 1)[0]
+							stopNameSimp = stopNameSimp.split("Sw-Bound" , 1)[0]
+							stopNameSimp = stopNameSimp.split("E-Bound" , 1)[0]
+							stopNameSimp = stopNameSimp.split("W-Bound" , 1)[0]
 
-		# The "Via" message is not given by the API, this method generates the Via message and returns it.
-	def GetComplexVia(self, Service):
+							stopNameSimp = stopNameSimp.strip()	
+
+							StopNames.append(stopNameSimp + ", ")
+
+						# Got to the current stop.
+						if stop['location_code'] == Args.StopID:
+							found = True
+
+				except Exception as e:
+					print("Unable to parse XML data, is your API Key correct? : " + e)
+			return StopNames
+		except Exception as e:
+			print("GetData() ERROR")
+			print(str(e))
+			return []
+
+	# The "Via" message is not given by the API, this method generates the Via message and returns it.
+	def GetComplexVia(self, ServiceID):
 		Via = ""
 		
+		if Args.ReducedAnimations:
+			return ""
+
 		#If the data has already been retrieved don't make another unended request.
-		if Service in Vias:
-			if Args.Destination == "2":
-				self.Destination = Dest[Service]
-			return Vias[Service]
+		if ServiceID in Vias:
+			return Vias[ServiceID]
 		
 		#Else this is the first time finding this service so look it up.
-		ViasTemp = []
+	
 		try:
-			tempLocs = json.loads(urlopen(self.ID).read())
-
-			if Args.Destination == "2":
-				Dest[Service] = tempLocs['stops'][-1]['stop_name']
-				self.Destination = Dest[Service]
-		
-			if Args.ReducedAnimations or Args.ViaMessageMode == "operator":
-				Vias[Service] = Via + "."			         
-				return Vias[Service]
-
+			ViasTemp = self.GetServiceLinePatteren(ServiceID)
+			
 			Via += " Via: "
-			for loc in tempLocs['stops']:
-				if Args.ViaMessageMode == "full":
-					if (loc['locality'] + ", ") not in Via:
-						Via += loc['locality'] + ", "
-				elif Args.ViaMessageMode =="shorten":
-					if (str(loc['locality'].split(',')[0]) + ", ") not in Via:
-						Via += (str(loc['locality'].split(',')[0]) + ", ")
-				elif Args.ViaMessageMode =="reduced" or  Args.ViaMessageMode == "fixed":
-					if (str(loc['locality'].split(',')[0]) + ", ") not in ViasTemp:
-						ViasTemp.append(str(loc['locality'].split(',')[0]) + ", ")  
 
 			if Args.ViaMessageMode =="reduced":
 				for i in range(len(ViasTemp)): 
@@ -186,20 +213,23 @@ class LiveTime(object):
 			if Args.ViaMessageMode =="fixed":
 				x = len(ViasTemp) // Args.FixedLocations if len(ViasTemp) // Args.FixedLocations != 0 else 1
 				z = 0
-				for i in range(1,len(ViasTemp)): 
+				for i in range(len(ViasTemp)): 
 					if i % x == 0:
 						Via += ViasTemp[i]
 						z += 1
 
-
-			Vias[Service] = Via[:-2] + "."			         
-			return Vias[Service]
+			if Args.ViaMessageMode == "full":
+				for i in range(len(ViasTemp)): 
+					Via += ViasTemp[i]
+ 
+			# Removes the final ", " from the last thing.
+			Vias[ServiceID] = Via[:-2] + "."			         
+			return Vias[ServiceID]
 		except Exception as e:
-			print("GetComplexVia(service) ERROR")
-			print(str(e))
-		Vias[Service] = Via + "."
-		Dest[Service] = self.Destination
-		return Vias[Service]
+			print("GetComplexVia(service) ERROR - " + e)
+
+		Vias[ServiceID] = Via + "."
+		return Vias[ServiceID]
 
 
 
@@ -243,10 +273,10 @@ class LiveTime(object):
 							# Convert the custom Reading Buses API object into a LiveTime object and add it to the list.
 							services.append(LiveTime(service, len(services)))
 				except Exception as e:
-					print("Unable to parse XML data, is your API Key correct?")
+					print("Unable to parse XML data, is your API Key correct? - " + e)
 			return services
 		except Exception as e:
-			print("GetData() ERROR")
+			print("GetData() ERROR - " + e)
 			print(str(e))
 			return []
 
@@ -270,7 +300,7 @@ class TextImage():
 # Used to create the destination and via board.
 class TextImageComplex():
 	def __init__(self, device, destination, via, startOffset):
-		self.image = Image.new(device.mode, (device.width*2, 16))
+		self.image = Image.new(device.mode, (device.width*20, 16))
 		draw = ImageDraw.Draw(self.image)
 		draw.text((0, 0), destination, font=BasicFont, fill="white")
 		draw.text((device.width - startOffset, 0), via, font=BasicFont, fill="white")
@@ -727,7 +757,7 @@ def Splash():
 	if Args.SplashScreen:
 		with canvas(device) as draw:
 			draw.multiline_text((64, 10), "Departure Board", font= ImageFont.truetype("%s/resources/Bold.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),20), align="center")
-			draw.multiline_text((45, 35), "Version : 2.1.RB -  By Jonathan Foot", font=ImageFont.truetype("%s/resources/Skinny.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
+			draw.multiline_text((45, 35), "Version : 3.0.RB -  By Jonathan Foot", font=ImageFont.truetype("%s/resources/Skinny.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
 		time.sleep(30) #Wait such a long time to allow the device to startup and connect to a WIFI source first.
 
 
