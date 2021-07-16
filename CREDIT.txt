@@ -21,13 +21,6 @@ Project (Python3) Includes:
 	DemoPy3.py - Test the program without needing any API credentials.
 	
 	
-Deprecated (Python 2) Project Includes:
-	ReadingBuses.py – Display any Reading Buses stop and services.
-	NationalBuses.py – Display any UK bus stop, data quality may 
-	vary region to region.
-	NationalRail.py – Display any UK train station, excluding the 
-	London Underground.
-	LondonUnderground.py - Display any London Underground Tube 
-	station.
-	Demo.py - Test the program without needing any API credentials.
-
+Deprecated (Python 2):
+	Python 2 programs have now been removed from the repository as of July 2021,
+	please see the repo commit history if you require these programs.

@@ -53,6 +53,14 @@ parser.add_argument("-e","--EnergySaverMode", help="To save screen from burn in 
 parser.add_argument("-i","--InactiveHours", help="The period of time for which the display will go into 'Energy Saving Mode' if turned on; default is '23:00-07:00'", type=check_time,default="23:00-07:00")
 parser.add_argument("-u","--UpdateDays", help="The number of days for which the Pi will wait before rebooting and checking for a new update again during your energy saving period; default 1 day (every day check).", type=check_positive, default=1)
 parser.add_argument("-x","--ExcludeServices", default="", help="List any services you do not wish to view. Make sure to capitalise correctly and simply put a single space between each; default is nothing, ie show every service.",  nargs='*')
+
+parser.add_argument("-m","--ViaMessageMode", choices=["full", "shorten", "reduced", "fixed", "operator"], default="fixed", help="The Transport API does not specifically store a bus routes 'Via' message. This message can be created instead using one of the following methods. full-the longest message contains both the county and suburb for each location. shorten- contains only the suburb (default). reduced- contains every C suburb visited where C is the ReducedValue 'c'. operator- only contains the name of the operator running the service. fixed- show at max F, where 'F' is the FixedLocations. This will take F locations evenly between all locations. You can also completely turn off this animation using the '--ReducedAnimations' tag.")
+parser.add_argument("-c","--ReducedValue", type=check_positive, default=2, help="If you are using a 'reduced' via message this value is for every n suburbs visited report it in the via; default is 2 ie every other suburb visited report.")
+parser.add_argument("-o","--Destination", choices=["1","2"], default="1", help="Depending on the region the buses destination reported maybe a generic place holder location. If this is the case you can switch to mode 2 for the last stop name.")
+parser.add_argument("-f","--FixedLocations",type=check_positive, default=3, help="If you are using 'fixed' via message this value will limit the max number of via destinations. Taking F locations evenly between a route.")
+parser.add_argument("-g","--ServiceName", choices=["1","2"], default="1", help="Depending on the region the buses service number maybe different to the bus service name. If this is the case you can switch between bus service nummber or name to suit your preference.")
+
+
 parser.add_argument('--ShowIndex', dest='ShowIndex', action='store_true',help="Do you wish to see index position for each service due to arrive.")
 parser.add_argument("--ReducedAnimations", help="If you wish to stop the Via animation and cycle faster through the services use this tag to turn the animation off.", dest='ReducedAnimations', action='store_true')
 parser.add_argument("--UnfixNextToArrive",dest='FixToArrive', action='store_false', help="Keep the bus sonnest to next arrive at the very top of the display until it has left; by default true")
@@ -75,6 +83,12 @@ Args = parser.parse_args()
 BasicFont = ImageFont.truetype("%s/resources/lower.ttf" %(os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) ),14)
 # Defines the place holder via message when one can not be found/ given in the API.
 GenericVia = "Via Central Reading"
+
+# To prevent unnecessary calls to the API we assume a service will always follow the same route throughout the day 
+# Once we have got the destination for that service and it's "Via" message we save it here to be looked up if needed again.
+Vias = {"0":"Via London Bridge"}
+Dest = {"0":"Central London"}
+
 
 ###
 # Below contains the class which is used to reperesent one instance of a service record. It is also responsible for getting the information from the Reading Buses API.
@@ -126,6 +140,69 @@ class LiveTime(object):
 			if Diff >=15 :
 				return ' ' + datetime.strptime(self.SchArrival, '%Y-%m-%dT%H:%M:%S').strftime("%H:%M" if (Args.TimeFormat==24) else  "%I:%M")
 			return  ' %d min' % Diff
+
+
+
+		# The "Via" message is not given by the API, this method generates the Via message and returns it.
+	def GetComplexVia(self, Service):
+		Via = ""
+		
+		#If the data has already been retrieved don't make another unended request.
+		if Service in Vias:
+			if Args.Destination == "2":
+				self.Destination = Dest[Service]
+			return Vias[Service]
+		
+		#Else this is the first time finding this service so look it up.
+		ViasTemp = []
+		try:
+			tempLocs = json.loads(urlopen(self.ID).read())
+
+			if Args.Destination == "2":
+				Dest[Service] = tempLocs['stops'][-1]['stop_name']
+				self.Destination = Dest[Service]
+		
+			if Args.ReducedAnimations or Args.ViaMessageMode == "operator":
+				Vias[Service] = Via + "."			         
+				return Vias[Service]
+
+			Via += " Via: "
+			for loc in tempLocs['stops']:
+				if Args.ViaMessageMode == "full":
+					if (loc['locality'] + ", ") not in Via:
+						Via += loc['locality'] + ", "
+				elif Args.ViaMessageMode =="shorten":
+					if (str(loc['locality'].split(',')[0]) + ", ") not in Via:
+						Via += (str(loc['locality'].split(',')[0]) + ", ")
+				elif Args.ViaMessageMode =="reduced" or  Args.ViaMessageMode == "fixed":
+					if (str(loc['locality'].split(',')[0]) + ", ") not in ViasTemp:
+						ViasTemp.append(str(loc['locality'].split(',')[0]) + ", ")  
+
+			if Args.ViaMessageMode =="reduced":
+				for i in range(len(ViasTemp)): 
+					if i % Args.ReducedValue:
+						Via += ViasTemp[i]
+
+			if Args.ViaMessageMode =="fixed":
+				x = len(ViasTemp) // Args.FixedLocations if len(ViasTemp) // Args.FixedLocations != 0 else 1
+				z = 0
+				for i in range(1,len(ViasTemp)): 
+					if i % x == 0:
+						Via += ViasTemp[i]
+						z += 1
+
+
+			Vias[Service] = Via[:-2] + "."			         
+			return Vias[Service]
+		except Exception as e:
+			print("GetComplexVia(service) ERROR")
+			print(str(e))
+		Vias[Service] = Via + "."
+		Dest[Service] = self.Destination
+		return Vias[Service]
+
+
+
 
 	# Returns true or false dependent upon if the last time an API data call was made was over the request limit; to prevent spamming the API feed.
 	@staticmethod
