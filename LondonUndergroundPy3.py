@@ -113,7 +113,7 @@ class LiveTime(object):
 	def GetDisplayTime(self):
 		# Last time the display screen was updated to reflect the new time of arrival.
 		self.LastStaticUpdate = datetime.now()
-		if self.TimeInMin() <= 1:
+		if self.TimeInMin() <= 0.5:
 			return ' Due'
 		elif self.TimeInMin() >=15 :
 			return ' ' + datetime.strptime(self.ExptArrival, '%Y-%m-%dT%H:%M:%SZ').strftime("%H:%M" if (Args.TimeFormat==24) else  "%I:%M")
