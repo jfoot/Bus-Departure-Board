@@ -352,7 +352,7 @@ class NoService():
 	def __init__(self, device):		
 		w = device.width
 		h = 16
-		msg = "RB.JONATHANFOOT.COM"
+		msg = "UPDATE2.JONATHANFOOT.COM"
 		self.image = Image.new(device.mode, (w, h))
 		draw = ImageDraw.Draw(self.image)
 		draw.text((0, 0), msg, font=BasicFont, fill="white")
