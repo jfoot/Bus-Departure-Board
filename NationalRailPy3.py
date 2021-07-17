@@ -265,7 +265,8 @@ class VariableTextImage():
         self.height = 5 + draw.textsize(text, BasicFont)[1]
         del draw
     
-    def generateFont(self, text, sizeAllowed):
+    @staticmethod
+    def generateFont(text, sizeAllowed):
         tempFontSize = 3
         font = ImageFont.truetype("%s/resources/lower.ttf" %(os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))), tempFontSize)
         while font.getsize(text)[0] < sizeAllowed and tempFontSize <= FontSize-1:
@@ -296,15 +297,24 @@ class StaticTextImage():
         self.image = Image.new(device.mode, (device.width, FontSize*2))
         draw = ImageDraw.Draw(self.image)
         
-        displayTimeTempPrevious = TextImage(device, previous_service.DisplayTime)
-        displayTimeTemp = TextImage(device, service.DisplayTime)
 
+        displayTimeTemp = TextImage(device, service.DisplayTime)
+        displayInfoTemp = TextImage(device, service.DisplayText)
+        sizeRemaining =  device.width - (displayTimeTemp.width + displayInfoTemp.width)
+    
         draw.text((0, FontSize), service.DisplayText, font=BasicFont, fill="white")
         draw.text((device.width - displayTimeTemp.width, FontSize), service.DisplayTime, font=BasicFont, fill="white")
-    
+        draw.text((displayInfoTemp.width, FontSize), service.Destination, font=VariableTextImage.generateFont(service.Destination, sizeRemaining), fill="white")
+
+
+        displayTimeTempPrev = TextImage(device, previous_service.DisplayTime)
+        displayInfoTempPrev = TextImage(device, previous_service.DisplayText)
+        sizeRemainingPrev =  device.width - (displayTimeTempPrev.width + displayInfoTempPrev.width)
+       
         draw.text((0, 0), previous_service.DisplayText, font=BasicFont, fill="white")
-        draw.text((device.width - displayTimeTempPrevious.width, 0), previous_service.DisplayTime, font=BasicFont, fill="white")
-    
+        draw.text((device.width - displayTimeTempPrev.width, 0), previous_service.DisplayTime, font=BasicFont, fill="white")
+        draw.text((displayInfoTempPrev.width, 0), previous_service.Destination, font=VariableTextImage.generateFont(previous_service.Destination, sizeRemainingPrev), fill="white")
+
         self.width = device.width 
         self.height = FontSize * 2
         del draw
