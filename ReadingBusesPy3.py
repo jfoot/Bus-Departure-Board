@@ -8,6 +8,7 @@ import time
 import inspect,os
 import sys
 import argparse
+import json
 from urllib.request import urlopen
 from PIL import ImageFont, Image, ImageDraw
 from luma.core.render import canvas
@@ -53,28 +54,34 @@ parser.add_argument("-e","--EnergySaverMode", help="To save screen from burn in 
 parser.add_argument("-i","--InactiveHours", help="The period of time for which the display will go into 'Energy Saving Mode' if turned on; default is '23:00-07:00'", type=check_time,default="23:00-07:00")
 parser.add_argument("-u","--UpdateDays", help="The number of days for which the Pi will wait before rebooting and checking for a new update again during your energy saving period; default 1 day (every day check).", type=check_positive, default=1)
 parser.add_argument("-x","--ExcludeServices", default="", help="List any services you do not wish to view. Make sure to capitalise correctly and simply put a single space between each; default is nothing, ie show every service.",  nargs='*')
+parser.add_argument("-m","--ViaMessageMode", choices=["full", "reduced", "fixed"], default="fixed", help="The Reading Buses API no longer specifically store a bus routes 'Via' message. This message can be created instead using one of the following methods. full-the longest message contains every stop name. reduced- contains every C stop visited where C is the ReducedValue 'c'. fixed- show at max F, where 'F' is the FixedLocations. This will take F locations evenly between all locations. You can also completely turn off this animation using the '--ReducedAnimations' tag.")
+parser.add_argument("-c","--ReducedValue", type=check_positive, default=2, help="If you are using a 'reduced' via message this value is for every n suburbs visited report it in the via; default is 2 ie every other suburb visited report.")
+parser.add_argument("-f","--FixedLocations",type=check_positive, default=3, help="If you are using 'fixed' via message this value will limit the max number of via destinations. Taking F locations evenly between a route.")
 parser.add_argument('--ShowIndex', dest='ShowIndex', action='store_true',help="Do you wish to see index position for each service due to arrive.")
 parser.add_argument("--ReducedAnimations", help="If you wish to stop the Via animation and cycle faster through the services use this tag to turn the animation off.", dest='ReducedAnimations', action='store_true')
 parser.add_argument("--UnfixNextToArrive",dest='FixToArrive', action='store_false', help="Keep the bus sonnest to next arrive at the very top of the display until it has left; by default true")
-parser.add_argument("--HideUnknownVias", help="If the API does not report any known via route a placeholder of 'Via Central Reading' is used. If you wish to stop the animation for unknowns use this tag.", dest='HideUnknownVias', action='store_true')
 parser.add_argument('--no-splashscreen', dest='SplashScreen', action='store_false',help="Do you wish to see the splash screen at start up; recommended and on by default.")
 parser.add_argument("--Display", default="ssd1322", choices=['ssd1322','pygame','capture','gifanim'], help="Used for development purposes, allows you to switch from a physical display to a virtual emulated one; default 'ssd1322'")
 parser.add_argument("--max-frames", default=60,dest='maxframes', type=check_positive, help="Used only when using gifanim emulator, sets how long the gif should be.")
 parser.add_argument("--no-console-output",dest='NoConsole', action='store_true', help="Used to stop the program outputting anything to console that isn't an error message, you might want to do this if your logging the program output into a file to record crashes.")
 parser.add_argument("--filename", dest='filename', default="output.gif", help="Used mainly for development, if using a gifanim display, this can be used to set the output gif file name, this should always end in .gif.")
+parser.add_argument("--no-pip-update",dest='NoPipUpdate', action='store_true', default=False, help="By default, the program will update any software dependencies/ pip libraries, this is to ensure your display still works correctly and has the required security updates. However, if you wish you can use this tag to disable pip updates and downloads. ")
 
 
 # Defines all required paramaters
 requiredNamed = parser.add_argument_group('required named arguments')
-requiredNamed.add_argument("-k","--APIKey", help="Your Reading Buses API Key, you can get your own from: http://rtl2.ods-live.co.uk/cms/apiservice", type=str,required=True)
+requiredNamed.add_argument("-k","--APIKey", help="Your Reading Buses API Key, you can get your own from: https://reading-opendata.r2p.com", type=str,required=True)
 requiredNamed.add_argument("-s","--StopID", help="The Naptan Code for the specific bus stop you wish to display.", type=str,required=True)
 Args = parser.parse_args()
 
 ## Defines all the programs "global" variables 
 # Defines the basic font used throughout most of the text boxes in the program
 BasicFont = ImageFont.truetype("%s/resources/lower.ttf" %(os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) ),14)
-# Defines the place holder via message when one can not be found/ given in the API.
-GenericVia = "Via Central Reading"
+
+# To prevent unnecessary calls to the API we assume a service will always follow the same route throughout the day 
+# Once we have got the destination for that service and it's "Via" message we save it here to be looked up if needed again.
+Vias = {"0":"Via Central Reading"}
+
 
 ###
 # Below contains the class which is used to reperesent one instance of a service record. It is also responsible for getting the information from the Reading Buses API.
@@ -106,7 +113,7 @@ class LiveTime(object):
 		self.SchArrival = str(Data.MonitoredCall.AimedArrivalTime).split("+")[0]
 		self.ExptArrival = str(getattr( Data.MonitoredCall, "ExpectedArrivalTime", "")).split("+")[0]
 		# The "Via" message, which lists where the service will go through, if unknown use generic message.
-		self.Via = str(getattr(Data, "Via", GenericVia))
+		self.Via = self.GetComplexVia(str(Data.LineRef))
 		# The formated string containing the time of arrival, to be printed on the display screen.
 		self.DisplayTime = self.GetDisplayTime()
 		self.ID =  str(Data.FramedVehicleJourneyRef.DatedVehicleJourneyRef)
@@ -127,6 +134,110 @@ class LiveTime(object):
 				return ' ' + datetime.strptime(self.SchArrival, '%Y-%m-%dT%H:%M:%S').strftime("%H:%M" if (Args.TimeFormat==24) else  "%I:%M")
 			return  ' %d min' % Diff
 
+	# Gets a list of stops the bus service is yet to vist from the current stop.
+	def GetServiceLinePatteren(self, ServiceID):
+		try:
+			StopNames = list()
+			# Request the stops the service vists.
+			with urlopen("https://reading-opendata.r2p.com/api/v1/line-patterns?api_token=%s&line=%s" % (Args.APIKey, ServiceID)) as conn:
+				raw = conn.read()
+				# If HTTP failed.
+				if conn.getcode() != 200:
+					return StopNames
+				
+				stops = json.loads(raw)
+				try:
+					# Found the stop the service is currently at.
+					found = False
+			
+					for stop in stops:
+						#Add to the list all of the stops the service is yet to visit.
+						if found:
+							
+							stopNameSimp = str(stop['location_name']).title() 
+
+							# Removes any extra uneeded info from stop names to simplify them.
+							stopNameSimp = stopNameSimp.split("Opp" , 1)[0]
+							stopNameSimp = stopNameSimp.split("Adj" , 1)[0]
+							stopNameSimp = stopNameSimp.split("Stop" , 1)[0]
+							stopNameSimp = stopNameSimp.split("Adjacent" , 1)[0]
+							stopNameSimp = stopNameSimp.split("Opposite" , 1)[0]
+							stopNameSimp = stopNameSimp.split("N-Bound" , 1)[0]
+							stopNameSimp = stopNameSimp.split("Ne-Bound" , 1)[0]
+							stopNameSimp = stopNameSimp.split("Nw-Bound" , 1)[0]
+							stopNameSimp = stopNameSimp.split("S-Bound" , 1)[0]
+							stopNameSimp = stopNameSimp.split("Se-Bound" , 1)[0]
+							stopNameSimp = stopNameSimp.split("Sw-Bound" , 1)[0]
+							stopNameSimp = stopNameSimp.split("E-Bound" , 1)[0]
+							stopNameSimp = stopNameSimp.split("W-Bound" , 1)[0]
+
+							stopNameSimp = stopNameSimp.strip()	
+
+							StopNames.append(stopNameSimp + ", ")
+
+						# Got to the current stop.
+						if stop['location_code'] == Args.StopID:
+							found = True
+
+				except Exception as e:
+					print("Unable to parse XML data, is your API Key correct? : " + e)
+			return StopNames
+		except Exception as e:
+			print("GetData() ERROR")
+			print(str(e))
+			return []
+
+	# The "Via" message is not given by the API, this method generates the Via message and returns it.
+	def GetComplexVia(self, ServiceID):
+		Via = ""
+		
+		if Args.ReducedAnimations:
+			return ""
+
+		#If the data has already been retrieved don't make another unended request.
+		if ServiceID in Vias:
+			return Vias[ServiceID]
+		
+		#Else this is the first time finding this service so look it up.
+		try:
+			ViasTemp = self.GetServiceLinePatteren(ServiceID)
+			
+			# If it is the last stop in the route.
+			if len(ViasTemp) == 0:
+				Vias[ServiceID] = ""
+				return ""
+
+			Via += " Via: "
+
+			if Args.ViaMessageMode =="reduced":
+				for i in range(len(ViasTemp)): 
+					if i % Args.ReducedValue:
+						Via += ViasTemp[i]
+
+			if Args.ViaMessageMode =="fixed":
+				x = len(ViasTemp) // Args.FixedLocations if len(ViasTemp) // Args.FixedLocations != 0 else 1
+				z = 0
+				for i in range(len(ViasTemp)): 
+					if i % x == 0:
+						Via += ViasTemp[i]
+						z += 1
+
+			if Args.ViaMessageMode == "full":
+				for i in range(len(ViasTemp)): 
+					Via += ViasTemp[i]
+
+			# Removes the final ", " from the last thing.
+			Vias[ServiceID] = Via[:-2] + "."			         
+			return Vias[ServiceID]
+		except Exception as e:
+			print("GetComplexVia(service) ERROR - " + e)
+
+		Vias[ServiceID] = Via + "."
+		return Vias[ServiceID]
+
+
+
+
 	# Returns true or false dependent upon if the last time an API data call was made was over the request limit; to prevent spamming the API feed.
 	@staticmethod
 	def TimePassed():
@@ -144,25 +255,32 @@ class LiveTime(object):
 		services = []
 
 		try:
-			with urlopen("https://rtl2.ods-live.co.uk/api/siri/sm?key=%s&location=%s" % (Args.APIKey, Args.StopID)) as conn:
+			with urlopen("https://reading-opendata.r2p.com/api/v1/siri-sm?api_token=%s&location=%s" % (Args.APIKey, Args.StopID)) as conn:
 				raw = conn.read()
-				rawServices = objectify.fromstring(raw)
-			
-				# The Reading Buses API sometimes reports the same bus multiple times. To work around this we need to check if we have already found it.
-				for root in rawServices.ServiceDelivery.StopMonitoringDelivery.MonitoredStopVisit:
-					service = root.MonitoredVehicleJourney
-					exists = False
-					for current in services:
-						if current.ID == service.FramedVehicleJourneyRef.DatedVehicleJourneyRef:
-							exists = True
-							break
-					# If not already recorded and not in the excluded services list add it.
-					if exists == False and str(service.LineRef) not in Args.ExcludeServices:
-						# Convert the custom Reading Buses API object into a LiveTime object and add it to the list.
-						services.append(LiveTime(service, len(services)))
+
+				if conn.getcode() != 200:
+					return services
+				
+				try:
+					rawServices = objectify.fromstring(raw)
+				
+					# The Reading Buses API sometimes reports the same bus multiple times. To work around this we need to check if we have already found it.
+					for root in rawServices.ServiceDelivery.StopMonitoringDelivery.MonitoredStopVisit:
+						service = root.MonitoredVehicleJourney
+						exists = False
+						for current in services:
+							if current.ID == service.FramedVehicleJourneyRef.DatedVehicleJourneyRef:
+								exists = True
+								break
+						# If not already recorded and not in the excluded services list add it.
+						if exists == False and str(service.LineRef) not in Args.ExcludeServices:
+							# Convert the custom Reading Buses API object into a LiveTime object and add it to the list.
+							services.append(LiveTime(service, len(services)))
+				except Exception as e:
+					print("Unable to parse XML data, is your API Key correct? - " + e)
 			return services
 		except Exception as e:
-			print("GetData() ERROR")
+			print("GetData() ERROR - " + e)
 			print(str(e))
 			return []
 
@@ -186,7 +304,7 @@ class TextImage():
 # Used to create the destination and via board.
 class TextImageComplex():
 	def __init__(self, device, destination, via, startOffset):
-		self.image = Image.new(device.mode, (device.width*2, 16))
+		self.image = Image.new(device.mode, (device.width*20, 16))
 		draw = ImageDraw.Draw(self.image)
 		draw.text((0, 0), destination, font=BasicFont, fill="white")
 		draw.text((device.width - startOffset, 0), via, font=BasicFont, fill="white")
@@ -234,7 +352,7 @@ class NoService():
 	def __init__(self, device):		
 		w = device.width
 		h = 16
-		msg = "RB.JONATHANFOOT.COM"
+		msg = "UPDATE2.JONATHANFOOT.COM"
 		self.image = Image.new(device.mode, (w, h))
 		draw = ImageDraw.Draw(self.image)
 		draw.text((0, 0), msg, font=BasicFont, fill="white")
@@ -421,7 +539,8 @@ class ScrollTime():
 				if not self.is_waiting():
 					if self.synchroniser.is_synchronised():
 						self.synchroniser.busy(self)
-						if (Args.HideUnknownVias and self.CurrentService.Via == GenericVia) or Args.ReducedAnimations:
+						# If not a valid via message or not wanting animations.
+						if self.CurrentService.Via == "" or Args.ReducedAnimations:
 							self.state = self.WAIT_SYNC
 						elif self.CurrentService.ID == "0":
 							self.synchroniser.ready(self)
@@ -643,7 +762,7 @@ def Splash():
 	if Args.SplashScreen:
 		with canvas(device) as draw:
 			draw.multiline_text((64, 10), "Departure Board", font= ImageFont.truetype("%s/resources/Bold.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),20), align="center")
-			draw.multiline_text((45, 35), "Version : 2.1.RB -  By Jonathan Foot", font=ImageFont.truetype("%s/resources/Skinny.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
+			draw.multiline_text((45, 35), "Version : 3.0.RB -  By Jonathan Foot", font=ImageFont.truetype("%s/resources/Skinny.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
 		time.sleep(30) #Wait such a long time to allow the device to startup and connect to a WIFI source first.
 
 
@@ -663,7 +782,10 @@ try:
 			# Check for program updates and restart the pi every 'UpdateDays' Days.
 			if (datetime.now().date() - StartUpDate).days >= Args.UpdateDays:
 				print_safe("Checking for updates and then restarting Pi.")
-				os.system("sudo git -C %s pull; sudo reboot" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))))
+				if Args.NoPipUpdate:
+					os.system("sudo git -C %s pull; sudo reboot" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))))
+				else:
+					os.system("sudo -H pip install -U -r %s; sudo git -C %s pull; sudo reboot" % ((os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) +  "/requirementsPy3.txt"), os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))))
 				sys.exit()
 			if Args.EnergySaverMode == "dim":
 				if energyMode == "normal":

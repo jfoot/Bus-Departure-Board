@@ -64,6 +64,7 @@ parser.add_argument("--Display", default="ssd1322", choices=['ssd1322','pygame',
 parser.add_argument("--max-frames", default=60,dest='maxframes', type=check_positive, help="Used only when using gifanim emulator, sets how long the gif should be.")
 parser.add_argument("--no-console-output",dest='NoConsole', action='store_true', help="Used to stop the program outputting anything to console that isn't an error message, you might want to do this if your logging the program output into a file to record crashes.")
 parser.add_argument("--filename",dest='filename', default="output.gif", help="Used mainly for development, if using a gifanim display, this can be used to set the output gif file name, this should always end in .gif.")
+parser.add_argument("--no-pip-update",dest='NoPipUpdate',  action='store_true', default=False, help="By default, the program will update any software dependencies/ pip libraries, this is to ensure your display still works correctly and has the required security updates. However, if you wish you can use this tag to disable pip updates and downloads. ")
 
 
 # Defines all required paramaters
@@ -102,17 +103,23 @@ class LiveTime(object):
 	# * Change this method to implement your own API *
 	def __init__(self, Data):
 		self.Destination =  str(Data['towards'])
-		self.ExptArrival = str(Data['expectedArrival'])
+		self.ExptArrival = self.convertUTCtoLocal(str(Data['expectedArrival']))
 		self.DisplayTime = self.GetDisplayTime()
 		self.ID =  str(Data['id'])
 		self.Via = "This is a %s line train, to %s" % (str(Data['lineName']), str(Data['destinationName'] if 'destinationName' in Data else str(Data['towards'])))
 
-	
+	# The API gives time formats in UTC format, but during BST all times are one hour out. This corrects the issue.
+	def convertUTCtoLocal(self, dateTimeInput):
+		datetimeTemp = datetime.strptime(dateTimeInput, '%Y-%m-%dT%H:%M:%SZ')
+		datetimeTemp = datetimeTemp + (datetime.now() - datetime.utcnow())
+		return datetimeTemp.strftime('%Y-%m-%dT%H:%M:%SZ')
+
+
 	#Returns the value to display the time on the board.
 	def GetDisplayTime(self):
 		# Last time the display screen was updated to reflect the new time of arrival.
 		self.LastStaticUpdate = datetime.now()
-		if self.TimeInMin() <= 1:
+		if self.TimeInMin() <= 0.5:
 			return ' Due'
 		elif self.TimeInMin() >=15 :
 			return ' ' + datetime.strptime(self.ExptArrival, '%Y-%m-%dT%H:%M:%SZ').strftime("%H:%M" if (Args.TimeFormat==24) else  "%I:%M")
@@ -140,6 +147,7 @@ class LiveTime(object):
 
 		try:
 			with urlopen("https://api.tfl.gov.uk/StopPoint/%s/Arrivals?app_id=%s&app_key=%s" %  (Args.StationID, Args.APIID, Args.APIKey)) as conn:
+				print("https://api.tfl.gov.uk/StopPoint/%s/Arrivals?app_id=%s&app_key=%s" %  (Args.StationID, Args.APIID, Args.APIKey))
 				tempServices = json.loads(conn.read())
 				for service in tempServices:
 					# If not in excluded services list, convert custom API object to LiveTime object and add to list.
@@ -694,7 +702,7 @@ def Splash():
 	if Args.SplashScreen:
 		with canvas(device) as draw:
 			draw.multiline_text((64, 10), "Departure Board", font= ImageFont.truetype("%s/resources/Bold.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),20), align="center")
-			draw.multiline_text((45, 35), "Version : 2.2.LU -  By Jonathan Foot", font=ImageFont.truetype("%s/resources/Skinny.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
+			draw.multiline_text((45, 35), "Version : 2.3.LU -  By Jonathan Foot", font=ImageFont.truetype("%s/resources/Skinny.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
 		time.sleep(30) #Wait such a long time to allow the device to startup and connect to a WIFI source first.
 
 
@@ -714,7 +722,10 @@ try:
 			# Check for program updates and restart the pi every 'UpdateDays' Days.
 			if (datetime.now().date() - StartUpDate).days >= Args.UpdateDays:
 				print_safe("Checking for updates and then restarting Pi.")
-				os.system("sudo git -C %s pull; sudo reboot" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))))
+				if Args.NoPipUpdate:
+					os.system("sudo git -C %s pull; sudo reboot" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))))
+				else:
+					os.system("sudo -H pip install -U -r %s; sudo git -C %s pull; sudo reboot" % ((os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) +  "/requirementsPy3.txt"), os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))))
 				sys.exit()
 			if Args.EnergySaverMode == "dim":
 				if energyMode == "normal":

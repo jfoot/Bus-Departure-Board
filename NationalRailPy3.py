@@ -67,6 +67,7 @@ parser.add_argument("--Display", default="ssd1322", choices=['ssd1322','pygame',
 parser.add_argument("--max-frames", default=60,dest='maxframes', type=check_positive, help="Used only when using gifanim emulator, sets how long the gif should be.")
 parser.add_argument("--no-console-output",dest='NoConsole', action='store_true', help="Used to stop the program outputting anything to console that isn't an error message, you might want to do this if your logging the program output into a file to record crashes.")
 parser.add_argument("--filename",dest='filename', default="output.gif", help="Used mainly for development, if using a gifanim display, this can be used to set the output gif file name, this should always end in .gif.")
+parser.add_argument("--no-pip-update",dest='NoPipUpdate',  action='store_true', default=False, help="By default, the program will update any software dependencies/ pip libraries, this is to ensure your display still works correctly and has the required security updates. However, if you wish you can use this tag to disable pip updates and downloads. ")
 
 
 # Defines the required paramaters
@@ -168,8 +169,8 @@ class LiveTime(object):
         if not Args.HidePlatform:
             msg += self.Platform
             msg += ' '  * (4 - len(self.Platform))
-        msg += self.Destination
-        return msg[:35]
+
+        return msg
 
     # Returns the string to display for the predicted arrival text box
     def GetExptTime(self):
@@ -249,9 +250,36 @@ class TextImage():
         draw = ImageDraw.Draw(self.image)
         draw.text((0, 0), text, font=BasicFont, fill="white")
     
+        self.width = draw.textsize(text, BasicFont)[0]
+        self.height = 5 + draw.textsize(text, BasicFont)[1]
+        del draw
+
+# Used to create the time on the board or any other basic text box.
+class VariableTextImage():
+    def __init__(self, device, text, sizeAllowed):
+        # Add 5 onto the size to allow for padding
+        self.image = Image.new(device.mode, (sizeAllowed + 5, FontSize))
+        draw = ImageDraw.Draw(self.image)
+        draw.text((0, 0), text, font=self.generateFont(text, sizeAllowed), fill="white")
+    
         self.width = 5 + draw.textsize(text, BasicFont)[0]
         self.height = 5 + draw.textsize(text, BasicFont)[1]
         del draw
+    
+    @staticmethod
+    def generateFont(text, sizeAllowed):
+        tempFontSize = 3
+        font = ImageFont.truetype("%s/resources/lower.ttf" %(os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))), tempFontSize)
+        while font.getsize(text)[0] < sizeAllowed and tempFontSize <= FontSize-1:
+            # iterate until the text size is just larger than the criteria
+            tempFontSize += 1
+            font = ImageFont.truetype("%s/resources/lower.ttf" %(os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))), tempFontSize)
+
+        # optionally de-increment to be sure it is less than criteria
+        tempFontSize -= 1
+        return ImageFont.truetype("%s/resources/lower.ttf" %(os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))), tempFontSize)
+
+
 
 # Used to create the Calling At text box due to the length needed.
 class LongTextImage():
@@ -270,15 +298,24 @@ class StaticTextImage():
         self.image = Image.new(device.mode, (device.width, FontSize*2))
         draw = ImageDraw.Draw(self.image)
         
-        displayTimeTempPrevious = TextImage(device, previous_service.DisplayTime)
-        displayTimeTemp = TextImage(device, service.DisplayTime)
 
+        displayTimeTemp = TextImage(device, service.DisplayTime)
+        displayInfoTemp = TextImage(device, service.DisplayText)
+        sizeRemaining =  device.width - (displayTimeTemp.width + displayInfoTemp.width)
+    
         draw.text((0, FontSize), service.DisplayText, font=BasicFont, fill="white")
         draw.text((device.width - displayTimeTemp.width, FontSize), service.DisplayTime, font=BasicFont, fill="white")
-    
+        draw.text((displayInfoTemp.width, FontSize), service.Destination, font=VariableTextImage.generateFont(service.Destination, sizeRemaining), fill="white")
+
+
+        displayTimeTempPrev = TextImage(device, previous_service.DisplayTime)
+        displayInfoTempPrev = TextImage(device, previous_service.DisplayText)
+        sizeRemainingPrev =  device.width - (displayTimeTempPrev.width + displayInfoTempPrev.width)
+       
         draw.text((0, 0), previous_service.DisplayText, font=BasicFont, fill="white")
-        draw.text((device.width - displayTimeTempPrevious.width, 0), previous_service.DisplayTime, font=BasicFont, fill="white")
-    
+        draw.text((device.width - displayTimeTempPrev.width, 0), previous_service.DisplayTime, font=BasicFont, fill="white")
+        draw.text((displayInfoTempPrev.width, 0), previous_service.Destination, font=VariableTextImage.generateFont(previous_service.Destination, sizeRemainingPrev), fill="white")
+
         self.width = device.width 
         self.height = FontSize * 2
         del draw
@@ -386,9 +423,16 @@ class ScrollTime():
     # Generates all the Images (Text boxes) to be drawn on the display.
     def generateCard(self,service):
         displayTimeTemp = TextImage(device, service.DisplayTime)
-        self.IDisplayText =  ComposableImage(TextImage(device, service.DisplayText).image.crop((0,0,240,FontSize)), position=(0, Offset + (FontSize * self.position)))
+        displayInfoTemp = TextImage(device, service.DisplayText)
+
+        sizeRemaining =  device.width - (displayTimeTemp.width + displayInfoTemp.width)
+        displayDestinationTemp = VariableTextImage(device, service.Destination, sizeRemaining)
+     
+        self.IDisplayText =  ComposableImage(displayInfoTemp.image, position=(0, Offset + (FontSize * self.position)))
+        self.IDestintion = ComposableImage(displayDestinationTemp.image, position=(displayInfoTemp.width, Offset + (FontSize * self.position)))
         self.IDisplayTime =  ComposableImage(displayTimeTemp.image, position=(device.width - displayTimeTemp.width, Offset + (FontSize * self.position)))
-        
+    
+
         TempSCallingAt = TextImage(device, "Calling at:")
         TempICallingAt = LongTextImage(device, service.CallingAt)
         self.DirectService = ',' not in service.CallingAt
@@ -402,11 +446,17 @@ class ScrollTime():
         self.state = self.SCROLL_DECIDER
         self.synchroniser.ready(self)
         self.image_composition.remove_image(self.IDisplayTime)
+        self.image_composition.remove_image(self.IDestintion)
 
         displayTimeTemp = TextImage(device, newService.DisplayTime)
         self.IDisplayTime = ComposableImage(displayTimeTemp.image, position=(device.width - displayTimeTemp.width, Offset + (FontSize * self.position)))
     
+        sizeRemaining =  device.width - (displayTimeTemp.width + self.IDisplayText.width)
+        displayDestinationTemp = VariableTextImage(device, newService.Destination, sizeRemaining)
+        self.IDestintion = ComposableImage(displayDestinationTemp.image, position=(self.IDisplayText.width, Offset + (FontSize * self.position)))
+
         self.image_composition.add_image(self.IDisplayTime)
+        self.image_composition.add_image(self.IDestintion)
         self.image_composition.refresh()
 
 	# Called when you want to change the row from one service to another.
@@ -424,9 +474,11 @@ class ScrollTime():
         
         if self.CurrentService.ID != "0":
             self.image_composition.remove_image(self.IDisplayText)
+            self.image_composition.remove_image(self.IDestintion)
             self.image_composition.remove_image(self.IDisplayTime)
             del self.IDisplayText
             del self.IDisplayTime
+            del self.IDestintion
 
         if self.partner != None and self.partner.CurrentService.ID != "0":
             self.partner.refresh()
@@ -448,6 +500,7 @@ class ScrollTime():
             pass
         try:
             self.image_composition.remove_image(self.IDisplayText)
+            self.image_composition.remove_image(self.IDestintion)
             self.image_composition.remove_image(self.IDisplayTime)
         except:
             pass  
@@ -489,6 +542,7 @@ class ScrollTime():
             del self.IStaticOld
 
             self.image_composition.add_image(self.IDisplayText)
+            self.image_composition.add_image(self.IDestintion)
             self.image_composition.add_image(self.IDisplayTime)		
             self.render()
             self.synchroniser.ready(self)
@@ -510,6 +564,7 @@ class ScrollTime():
         elif self.state == self.SCROLLING_WAIT:
             if not self.is_waiting():
                 self.image_composition.remove_image(self.IDisplayText)
+                self.image_composition.remove_image(self.IDestintion)
                 self.image_composition.remove_image(self.IDisplayTime)
                 self.image_composition.add_image(self.ICallingAt)
                 self.image_composition.add_image(self.SCallingAt)
@@ -526,6 +581,7 @@ class ScrollTime():
                 self.image_composition.remove_image(self.ICallingAt)
         
                 self.image_composition.add_image(self.IDisplayText)
+                self.image_composition.add_image(self.IDestintion)
                 self.image_composition.add_image(self.IDisplayTime)		
         
                 self.state = self.WAIT_SYNC
@@ -573,10 +629,12 @@ class ScrollTime():
 
    	# Used to reset the image on the display. 
     def refresh(self):
-        if hasattr(self, 'IDisplayText') and  hasattr(self, 'IDisplayTime'):
+        if hasattr(self, 'IDisplayText') and hasattr(self, 'IDisplayTime') and hasattr(self, 'IDestintion'):
             self.image_composition.remove_image(self.IDisplayText)
+            self.image_composition.remove_image(self.IDestintion)
             self.image_composition.remove_image(self.IDisplayTime)
             self.image_composition.add_image(self.IDisplayText)
+            self.image_composition.add_image(self.IDestintion)
             self.image_composition.add_image(self.IDisplayTime)
 
 	# Used to add a partner; this is the row below it self. Used when needed to tell partner to redraw itself
@@ -753,7 +811,7 @@ def Splash():
     if Args.SplashScreen:
         with canvas(device) as draw:
             draw.multiline_text((64, 10), "Departure Board", font= ImageFont.truetype("%s/resources/Bold.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),20), align="center")
-            draw.multiline_text((45, 35), "Version : 2.2.NR -  By Jonathan Foot", font=ImageFont.truetype("%s/resources/Skinny.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
+            draw.multiline_text((45, 35), "Version : 2.3.NR -  By Jonathan Foot", font=ImageFont.truetype("%s/resources/Skinny.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
         time.sleep(30) #Wait such a long time to allow the device to startup and connect to a WIFI source first.
 
 
@@ -773,7 +831,11 @@ try:
             # Check for program updates and restart the pi every 'UpdateDays' Days.
             if (datetime.now().date() - StartUpDate).days >= Args.UpdateDays:
                 print_safe("Checking for updates and then restarting Pi.")
-                os.system("sudo git -C %s pull; sudo reboot" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))))
+
+                if Args.NoPipUpdate:
+                    os.system("sudo git -C %s pull; sudo reboot" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))))
+                else:
+                    os.system("sudo -H pip install -U -r %s; sudo git -C %s pull; sudo reboot" % ((os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) +  "/requirementsPy3.txt"), os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))))
                 sys.exit()
             if Args.EnergySaverMode == "dim":
                 if energyMode == "normal":
