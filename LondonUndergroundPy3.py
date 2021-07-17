@@ -103,12 +103,18 @@ class LiveTime(object):
 	# * Change this method to implement your own API *
 	def __init__(self, Data):
 		self.Destination =  str(Data['towards'])
-		self.ExptArrival = str(Data['expectedArrival'])
+		self.ExptArrival = self.convertUTCtoLocal(str(Data['expectedArrival']))
 		self.DisplayTime = self.GetDisplayTime()
 		self.ID =  str(Data['id'])
 		self.Via = "This is a %s line train, to %s" % (str(Data['lineName']), str(Data['destinationName'] if 'destinationName' in Data else str(Data['towards'])))
 
-	
+	# The API gives time formats in UTC format, but during BST all times are one hour out. This corrects the issue.
+	def convertUTCtoLocal(self, dateTimeInput):
+		datetimeTemp = datetime.strptime(dateTimeInput, '%Y-%m-%dT%H:%M:%SZ')
+		datetimeTemp = datetimeTemp + (datetime.now() - datetime.utcnow())
+		return datetimeTemp.strftime('%Y-%m-%dT%H:%M:%SZ')
+
+
 	#Returns the value to display the time on the board.
 	def GetDisplayTime(self):
 		# Last time the display screen was updated to reflect the new time of arrival.
@@ -141,6 +147,7 @@ class LiveTime(object):
 
 		try:
 			with urlopen("https://api.tfl.gov.uk/StopPoint/%s/Arrivals?app_id=%s&app_key=%s" %  (Args.StationID, Args.APIID, Args.APIKey)) as conn:
+				print("https://api.tfl.gov.uk/StopPoint/%s/Arrivals?app_id=%s&app_key=%s" %  (Args.StationID, Args.APIID, Args.APIKey))
 				tempServices = json.loads(conn.read())
 				for service in tempServices:
 					# If not in excluded services list, convert custom API object to LiveTime object and add to list.
