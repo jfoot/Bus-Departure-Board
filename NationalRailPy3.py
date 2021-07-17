@@ -445,11 +445,17 @@ class ScrollTime():
         self.state = self.SCROLL_DECIDER
         self.synchroniser.ready(self)
         self.image_composition.remove_image(self.IDisplayTime)
+        self.image_composition.remove_image(self.IDestintion)
 
         displayTimeTemp = TextImage(device, newService.DisplayTime)
         self.IDisplayTime = ComposableImage(displayTimeTemp.image, position=(device.width - displayTimeTemp.width, Offset + (FontSize * self.position)))
     
+        sizeRemaining =  device.width - (displayTimeTemp.width + self.IDisplayText.width)
+        displayDestinationTemp = VariableTextImage(device, newService.Destination, sizeRemaining)
+        self.IDestintion = ComposableImage(displayDestinationTemp.image, position=(self.IDisplayText.width, Offset + (FontSize * self.position)))
+
         self.image_composition.add_image(self.IDisplayTime)
+        self.image_composition.add_image(self.IDestintion)
         self.image_composition.refresh()
 
 	# Called when you want to change the row from one service to another.
