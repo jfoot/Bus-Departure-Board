@@ -168,8 +168,8 @@ class LiveTime(object):
         if not Args.HidePlatform:
             msg += self.Platform
             msg += ' '  * (4 - len(self.Platform))
-        msg += self.Destination
-        return msg[:35]
+
+        return msg
 
     # Returns the string to display for the predicted arrival text box
     def GetExptTime(self):
@@ -249,9 +249,35 @@ class TextImage():
         draw = ImageDraw.Draw(self.image)
         draw.text((0, 0), text, font=BasicFont, fill="white")
     
+        self.width = draw.textsize(text, BasicFont)[0]
+        self.height = 5 + draw.textsize(text, BasicFont)[1]
+        del draw
+
+# Used to create the time on the board or any other basic text box.
+class VariableTextImage():
+    def __init__(self, device, text, sizeAllowed):
+        # Add 5 onto the size to allow for padding
+        self.image = Image.new(device.mode, (sizeAllowed + 5, FontSize))
+        draw = ImageDraw.Draw(self.image)
+        draw.text((0, 0), text, font=self.generateFont(text, sizeAllowed), fill="white")
+    
         self.width = 5 + draw.textsize(text, BasicFont)[0]
         self.height = 5 + draw.textsize(text, BasicFont)[1]
         del draw
+    
+    def generateFont(self, text, sizeAllowed):
+        tempFontSize = 3
+        font = ImageFont.truetype("%s/resources/lower.ttf" %(os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))), tempFontSize)
+        while font.getsize(text)[0] < sizeAllowed and tempFontSize <= FontSize-1:
+            # iterate until the text size is just larger than the criteria
+            tempFontSize += 1
+            font = ImageFont.truetype("%s/resources/lower.ttf" %(os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))), tempFontSize)
+
+        # optionally de-increment to be sure it is less than criteria
+        tempFontSize -= 1
+        return ImageFont.truetype("%s/resources/lower.ttf" %(os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))), tempFontSize)
+
+
 
 # Used to create the Calling At text box due to the length needed.
 class LongTextImage():
@@ -386,9 +412,16 @@ class ScrollTime():
     # Generates all the Images (Text boxes) to be drawn on the display.
     def generateCard(self,service):
         displayTimeTemp = TextImage(device, service.DisplayTime)
-        self.IDisplayText =  ComposableImage(TextImage(device, service.DisplayText).image.crop((0,0,240,FontSize)), position=(0, Offset + (FontSize * self.position)))
+        displayInfoTemp = TextImage(device, service.DisplayText)
+
+        sizeRemaining =  device.width - (displayTimeTemp.width + displayInfoTemp.width)
+        displayDestinationTemp = VariableTextImage(device, service.Destination, sizeRemaining)
+     
+        self.IDisplayText =  ComposableImage(displayInfoTemp.image, position=(0, Offset + (FontSize * self.position)))
+        self.IDestintion = ComposableImage(displayDestinationTemp.image, position=(displayInfoTemp.width, Offset + (FontSize * self.position)))
         self.IDisplayTime =  ComposableImage(displayTimeTemp.image, position=(device.width - displayTimeTemp.width, Offset + (FontSize * self.position)))
-        
+    
+
         TempSCallingAt = TextImage(device, "Calling at:")
         TempICallingAt = LongTextImage(device, service.CallingAt)
         self.DirectService = ',' not in service.CallingAt
@@ -424,9 +457,11 @@ class ScrollTime():
         
         if self.CurrentService.ID != "0":
             self.image_composition.remove_image(self.IDisplayText)
+            self.image_composition.remove_image(self.IDestintion)
             self.image_composition.remove_image(self.IDisplayTime)
             del self.IDisplayText
             del self.IDisplayTime
+            del self.IDestintion
 
         if self.partner != None and self.partner.CurrentService.ID != "0":
             self.partner.refresh()
@@ -448,6 +483,7 @@ class ScrollTime():
             pass
         try:
             self.image_composition.remove_image(self.IDisplayText)
+            self.image_composition.remove_image(self.IDestintion)
             self.image_composition.remove_image(self.IDisplayTime)
         except:
             pass  
@@ -489,6 +525,7 @@ class ScrollTime():
             del self.IStaticOld
 
             self.image_composition.add_image(self.IDisplayText)
+            self.image_composition.add_image(self.IDestintion)
             self.image_composition.add_image(self.IDisplayTime)		
             self.render()
             self.synchroniser.ready(self)
@@ -510,6 +547,7 @@ class ScrollTime():
         elif self.state == self.SCROLLING_WAIT:
             if not self.is_waiting():
                 self.image_composition.remove_image(self.IDisplayText)
+                self.image_composition.remove_image(self.IDestintion)
                 self.image_composition.remove_image(self.IDisplayTime)
                 self.image_composition.add_image(self.ICallingAt)
                 self.image_composition.add_image(self.SCallingAt)
@@ -526,6 +564,7 @@ class ScrollTime():
                 self.image_composition.remove_image(self.ICallingAt)
         
                 self.image_composition.add_image(self.IDisplayText)
+                self.image_composition.add_image(self.IDestintion)
                 self.image_composition.add_image(self.IDisplayTime)		
         
                 self.state = self.WAIT_SYNC
@@ -573,10 +612,12 @@ class ScrollTime():
 
    	# Used to reset the image on the display. 
     def refresh(self):
-        if hasattr(self, 'IDisplayText') and  hasattr(self, 'IDisplayTime'):
+        if hasattr(self, 'IDisplayText') and hasattr(self, 'IDisplayTime') and hasattr(self, 'IDestintion'):
             self.image_composition.remove_image(self.IDisplayText)
+            self.image_composition.remove_image(self.IDestintion)
             self.image_composition.remove_image(self.IDisplayTime)
             self.image_composition.add_image(self.IDisplayText)
+            self.image_composition.add_image(self.IDestintion)
             self.image_composition.add_image(self.IDisplayTime)
 
 	# Used to add a partner; this is the row below it self. Used when needed to tell partner to redraw itself
