@@ -60,7 +60,6 @@ parser.add_argument("-f","--FixedLocations",type=check_positive, default=3, help
 parser.add_argument('--ShowIndex', dest='ShowIndex', action='store_true',help="Do you wish to see index position for each service due to arrive.")
 parser.add_argument("--ReducedAnimations", help="If you wish to stop the Via animation and cycle faster through the services use this tag to turn the animation off.", dest='ReducedAnimations', action='store_true')
 parser.add_argument("--UnfixNextToArrive",dest='FixToArrive', action='store_false', help="Keep the bus sonnest to next arrive at the very top of the display until it has left; by default true")
-parser.add_argument("--HideUnknownVias", help="If the API does not report any known via route a placeholder of 'Via Central Reading' is used. If you wish to stop the animation for unknowns use this tag.", dest='HideUnknownVias', action='store_true')
 parser.add_argument('--no-splashscreen', dest='SplashScreen', action='store_false',help="Do you wish to see the splash screen at start up; recommended and on by default.")
 parser.add_argument("--Display", default="ssd1322", choices=['ssd1322','pygame','capture','gifanim'], help="Used for development purposes, allows you to switch from a physical display to a virtual emulated one; default 'ssd1322'")
 parser.add_argument("--max-frames", default=60,dest='maxframes', type=check_positive, help="Used only when using gifanim emulator, sets how long the gif should be.")
@@ -199,10 +198,14 @@ class LiveTime(object):
 			return Vias[ServiceID]
 		
 		#Else this is the first time finding this service so look it up.
-	
 		try:
 			ViasTemp = self.GetServiceLinePatteren(ServiceID)
 			
+			# If it is the last stop in the route.
+			if len(ViasTemp) == 0:
+				Vias[ServiceID] = ""
+				return ""
+
 			Via += " Via: "
 
 			if Args.ViaMessageMode =="reduced":
@@ -535,7 +538,8 @@ class ScrollTime():
 				if not self.is_waiting():
 					if self.synchroniser.is_synchronised():
 						self.synchroniser.busy(self)
-						if (Args.HideUnknownVias and self.CurrentService.Via == GenericVia) or Args.ReducedAnimations:
+						# If not a valid via message or not wanting animations.
+						if self.CurrentService.Via == "" or Args.ReducedAnimations:
 							self.state = self.WAIT_SYNC
 						elif self.CurrentService.ID == "0":
 							self.synchroniser.ready(self)
