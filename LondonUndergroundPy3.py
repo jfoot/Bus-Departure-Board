@@ -147,7 +147,6 @@ class LiveTime(object):
 
 		try:
 			with urlopen("https://api.tfl.gov.uk/StopPoint/%s/Arrivals?app_id=%s&app_key=%s" %  (Args.StationID, Args.APIID, Args.APIKey)) as conn:
-				print("https://api.tfl.gov.uk/StopPoint/%s/Arrivals?app_id=%s&app_key=%s" %  (Args.StationID, Args.APIID, Args.APIKey))
 				tempServices = json.loads(conn.read())
 				for service in tempServices:
 					# If not in excluded services list, convert custom API object to LiveTime object and add to list.

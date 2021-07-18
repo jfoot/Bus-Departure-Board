@@ -257,6 +257,8 @@ class TextImage():
 # Used to create the time on the board or any other basic text box.
 class VariableTextImage():
     def __init__(self, device, text, sizeAllowed):
+        print("Width " + (sizeAllowed + 5) + " Height - " + FontSize + " Text - " + text + " .")
+
         # Add 5 onto the size to allow for padding
         self.image = Image.new(device.mode, (sizeAllowed + 5, FontSize))
         draw = ImageDraw.Draw(self.image)
@@ -451,7 +453,9 @@ class ScrollTime():
         displayTimeTemp = TextImage(device, newService.DisplayTime)
         self.IDisplayTime = ComposableImage(displayTimeTemp.image, position=(device.width - displayTimeTemp.width, Offset + (FontSize * self.position)))
     
-        sizeRemaining =  device.width - (displayTimeTemp.width + self.IDisplayText.width)
+        tempDisplayText =  TextImage(device, newService.DisplayText)
+
+        sizeRemaining =  device.width - (displayTimeTemp.width + tempDisplayText.width)
         displayDestinationTemp = VariableTextImage(device, newService.Destination, sizeRemaining)
         self.IDestintion = ComposableImage(displayDestinationTemp.image, position=(self.IDisplayText.width, Offset + (FontSize * self.position)))
 
