@@ -451,7 +451,10 @@ class ScrollTime():
         displayTimeTemp = TextImage(device, newService.DisplayTime)
         self.IDisplayTime = ComposableImage(displayTimeTemp.image, position=(device.width - displayTimeTemp.width, Offset + (FontSize * self.position)))
     
-        sizeRemaining =  device.width - (displayTimeTemp.width + self.IDisplayText.width)
+        tempDisplayText =  TextImage(device, newService.DisplayText)
+
+        sizeRemaining =  device.width - (displayTimeTemp.width + tempDisplayText.width)
+
         displayDestinationTemp = VariableTextImage(device, newService.Destination, sizeRemaining)
         self.IDestintion = ComposableImage(displayDestinationTemp.image, position=(self.IDisplayText.width, Offset + (FontSize * self.position)))
 
@@ -811,7 +814,7 @@ def Splash():
     if Args.SplashScreen:
         with canvas(device) as draw:
             draw.multiline_text((64, 10), "Departure Board", font= ImageFont.truetype("%s/resources/Bold.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),20), align="center")
-            draw.multiline_text((45, 35), "Version : 2.3.NR -  By Jonathan Foot", font=ImageFont.truetype("%s/resources/Skinny.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
+            draw.multiline_text((45, 35), "Version : 2.4.NR -  By Jonathan Foot", font=ImageFont.truetype("%s/resources/Skinny.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
         time.sleep(30) #Wait such a long time to allow the device to startup and connect to a WIFI source first.
 
 
