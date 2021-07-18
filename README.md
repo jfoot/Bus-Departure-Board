@@ -25,9 +25,7 @@ Live Departure boards is a selection of different Python programs capable of rep
 * National Railway Depature Board (NationalRailPy3.py) - get live train station information for any UK train station, this program uses the [National Rail API](http://realtime.nationalrail.co.uk/OpenLDBWSRegistration/)
 * London Underground Depature Board (LondonUndergroundPy3.py) - get live tube station information for any London Underground station, this program uses the [Transport for London API](https://api-portal.tfl.gov.uk/signup)
 
-This repository has both Python2 and Python3 compatiable programs, but the Python2 versions are now deprecated and are no longer receiving any new updates. I would strongly suggest using Python3 if you are not already.
-
-If you're currently using the Python2 versions and would like to upgrade to Python3, instructions on doing so can be found at [update.jonathanfoot.com](https://update.jonathanfoot.com/).
+If you're still using the Python2 versions and would like to upgrade to Python3, instructions on doing so can be found at [update.jonathanfoot.com](https://update.jonathanfoot.com/).
 
 If you're currently using an old version of the Reading Buses program that uses the old Reading Buses API and would like help changing to the new API please read the [help pages here](https://update2.jonathanfoot.com/)
 
