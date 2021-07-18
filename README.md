@@ -20,7 +20,7 @@ Live Departure boards is a selection of different Python programs capable of rep
 
 ## Programs Included
 
-* Reading Buses Depature Board (ReadingBusesPy3.py)- get live bus stop information for all bus stops serviced by Reading Buses, this program uses the [Reading Buses API](http://rtl2.ods-live.co.uk/cms/apiservice)
+* Reading Buses Depature Board (ReadingBusesPy3.py)- get live bus stop information for all bus stops serviced by Reading Buses, this program uses the [Reading Buses API](https://reading-opendata.r2p.com/api-service)
 * National Bus Depature Board (NationalBusesPy3.py)- get live bus stop infromation from any bus stop in the whole of the UK for all bus services, this program uses the [Transport API](http://transportapi.com)
 * National Railway Depature Board (NationalRailPy3.py) - get live train station information for any UK train station, this program uses the [National Rail API](http://realtime.nationalrail.co.uk/OpenLDBWSRegistration/)
 * London Underground Depature Board (LondonUndergroundPy3.py) - get live tube station information for any London Underground station, this program uses the [Transport for London API](https://api-portal.tfl.gov.uk/signup)
@@ -28,6 +28,8 @@ Live Departure boards is a selection of different Python programs capable of rep
 This repository has both Python2 and Python3 compatiable programs, but the Python2 versions are now deprecated and are no longer receiving any new updates. I would strongly suggest using Python3 if you are not already.
 
 If you're currently using the Python2 versions and would like to upgrade to Python3, instructions on doing so can be found at [update.jonathanfoot.com](https://update.jonathanfoot.com/).
+
+If you're currently using an old version of the Reading Buses program that uses the old Reading Buses API and would like help changing to the new API please read the [help pages here](https://update2.jonathanfoot.com/)
 
 ## Bug Reporting
 If you've found a bug and would like to report it please create a GitHub issue or send me an email about it and if I'm not to busy I will try to fix it.
