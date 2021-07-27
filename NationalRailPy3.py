@@ -162,7 +162,7 @@ class LiveTime(object):
     # Gets the expected arrival time - if not known get departure time instead, else get scheduled.
     def GetExpectedArrivalTime(self, Data):
         if(Data.eta == None):
-            if(str(Data.etd) == None):
+            if(Data.etd == None):
                 return self.GetArrivalTime(Data)
             else:
                 return str(Data.etd) 
