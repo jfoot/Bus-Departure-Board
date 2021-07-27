@@ -143,9 +143,9 @@ class LiveTime(object):
     def __init__(self, Data, Index, serviceC):
         self.Index = str(inflect.engine().ordinal(Index))
         self.Destination = str(serviceC.destination_text).split("via")[0]
-        self.SchArrival =  str(Data.sta)
+        self.SchArrival =  self.GetArrivalTime(Data)
         # The text displayed showing the status of the train, ie, "On time", "Canceled" or "XX:XX"
-        self.ExptArrival = str(Data.eta) if Data.eta != None else str(Data.sta)      
+        self.ExptArrival = self.GetExpectedArrivalTime(Data)    
         self.DisplayTime =  self.GetExptTime()
         # The text displayed showing where the train will be stopping at along the way.
         self.CallingAt = str([cp.location_name for cp in Data.subsequent_calling_points]).replace(']','').replace('[','')
@@ -159,6 +159,24 @@ class LiveTime(object):
         #self.IsCancelled = str(Data.is_cancelled)
         #self.DisruptionReason = str(Data.disruption_reason)
     
+    # Gets the expected arrival time - if not known get departure time instead, else get scheduled.
+    def GetExpectedArrivalTime(self, Data):
+        if(Data.eta == None):
+            if(str(Data.etd) == None):
+                return self.GetArrivalTime(Data)
+            else:
+                return str(Data.etd) 
+        else:
+            return str(Data.eta)
+
+    # Gets the expected arrival time, if not known get departure time instead.
+    def GetArrivalTime(self, Data):
+        if(Data.sta == None):
+            return str(Data.std)
+        else:
+            return str(Data.sta)
+
+
     # Returns the string which will be shown on the display.
     def GetDisplayMessage(self):
         msg = ''
@@ -228,7 +246,7 @@ class LiveTime(object):
                 if len(services) >= Args.NumberOfCards:
                     break
                 service = darwin_sesh.get_service_details(serviceC.service_id)
-                if service.sta != None and str(service.platform) not in Args.ExcludedPlatforms:
+                if (service.sta != None or service.std != None) and str(service.platform) not in Args.ExcludedPlatforms:
                     services.append(LiveTime(service, len(services) + 1, serviceC))
 
             return services
