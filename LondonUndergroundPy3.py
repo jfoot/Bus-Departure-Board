@@ -53,7 +53,7 @@ parser.add_argument("-e","--EnergySaverMode", help="To save screen from burn in 
 parser.add_argument("-i","--InactiveHours", help="The period of time for which the display will go into 'Energy Saving Mode' if turned on; default is '23:00-07:00'", type=check_time,default="23:00-07:00")
 parser.add_argument("-u","--UpdateDays", help="The number of days for which the Pi will wait before rebooting and checking for a new update again during your energy saving period; default 1 day (every day check).", type=check_positive, default=1)
 parser.add_argument("-x","--ExcludeLines", default="", help="List any Lines you do not wish to view. Make sure to capitalise correctly and simply put a single space between each, for example 'Bakerloo Circle'; default is nothing, ie show every service.",  nargs='*')
-parser.add_argument("-p","--Direction", help="For stations which have inbound and outbound services, do you wish to view both directions or only one?; default is inbound directions", choices=['inbound','outbound','both'],default='inbound')
+parser.add_argument("-p","--Direction", help="For stations which have inbound and outbound services, do you wish to view both directions or only one?; default is inbound directions", choices=['inbound','outbound','both'],default='both')
 parser.add_argument("-w","--WarningTime", help="How soon before the warning message will be displayed about a trains arrival in min; 0.2 by default. i.e when the train is due to arrive in 0.2min start warning of an arriving train.", type=check_positive, default=0.2)
 parser.add_argument('--HideIndex', dest='ShowIndex', action='store_false',help="Do you wish to see index position for each service due to arrive. By default yes.",default=True)
 parser.add_argument("--IncreasedAnimations", help="If you wish to show an additional animation message which shows 'This is a [Line Name] line train, to [destination]' turn it on with the following; by default this animation isn't shown as it will be the same for a lot of services.", dest='ReducedAnimations', action='store_false', default=True)
@@ -119,7 +119,7 @@ class LiveTime(object):
 	def GetDisplayTime(self):
 		# Last time the display screen was updated to reflect the new time of arrival.
 		self.LastStaticUpdate = datetime.now()
-		if self.TimeInMin() <= 0.5:
+		if self.TimeInMin() <= 1:
 			return ' Due'
 		elif self.TimeInMin() >=15 :
 			return ' ' + datetime.strptime(self.ExptArrival, '%Y-%m-%dT%H:%M:%SZ').strftime("%H:%M" if (Args.TimeFormat==24) else  "%I:%M")
@@ -159,7 +159,10 @@ class LiveTime(object):
 			if Args.ShowIndex:
 				x = 1
 				for service in services:
-					service.Destination = str(x) + ". " + service.Destination
+					if x <= 9: 
+						service.Destination = str(x) + ". " + service.Destination
+					else:
+						service.Destination = str(x) + "." + service.Destination
 					x = x + 1
 	
 			return services
