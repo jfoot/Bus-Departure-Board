@@ -70,7 +70,6 @@ parser.add_argument("--no-pip-update",dest='NoPipUpdate',  action='store_true', 
 # Defines all required paramaters
 requiredNamed = parser.add_argument_group('required named arguments')
 requiredNamed.add_argument("-k","--APIKey", help="Your Transport for London API Key, you can get your own at: https://api-portal.tfl.gov.uk/signup", type=str,required=True)
-requiredNamed.add_argument("-a","--APIID", help="Your Transport for London App ID, you can get your own at: https://api-portal.tfl.gov.uk/signup", type=str,required=True)
 requiredNamed.add_argument("-s","--StationID", help="The London Underground Code for the specific station you wish to display.", type=str,required=True)
 Args = parser.parse_args()
 
@@ -146,7 +145,7 @@ class LiveTime(object):
 		services = []
 
 		try:
-			with urlopen("https://api.tfl.gov.uk/StopPoint/%s/Arrivals?app_id=%s&app_key=%s" %  (Args.StationID, Args.APIID, Args.APIKey)) as conn:
+			with urlopen("https://api.tfl.gov.uk/StopPoint/%s/Arrivals?app_key=%s" %  (Args.StationID, Args.APIKey)) as conn:
 				tempServices = json.loads(conn.read())
 				for service in tempServices:
 					# If not in excluded services list, convert custom API object to LiveTime object and add to list.
