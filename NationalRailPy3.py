@@ -56,6 +56,7 @@ parser.add_argument("-i","--InactiveHours", help="The period of time for which t
 parser.add_argument("-u","--UpdateDays", help="The number of days for which the Pi will wait before rebooting and checking for a new update again during your energy saving period; default 1 day (every day check).", type=check_positive, default=1)
 parser.add_argument("-x","--ExcludedPlatforms", default="", help="List any platforms you do not wish to view. Make sure to capitalise correctly and simply put a single space between each; default is nothing, ie show every platform.",  nargs='*')
 parser.add_argument("-q","--Header", default="desc", choices=['desc','loc','date','none'],help="Defines the design for the top row/ header of the display. desc- List the purpose of each column. loc- Names the location of the station above. date- List the date at the top. none-Keeps the header blank. default is desc.")
+parser.add_argument("-c","--HeaderAlignment", default="center", choices=['right','center'],help="If you use the 'loc' or 'date' header you can choose to either center or right align this text. By default it will cetner align.")
 parser.add_argument("-m","--Design", default='full', help="Alters the design of the display, full- shows both scheduled and expected arrival time. compact- shows only the expected time (like a bus display); default is 'full'",  choices=['full','compact'])
 parser.add_argument('--ShowCallingAtForDirect', dest='ShowDirect', action='store_true',default=False,help="For trains that are a direct route, ie they will only be calling at their terminating destination by default have their calling at animation skipped. Using this tag will show the animation again.")
 parser.add_argument('--HidePlatform', dest='HidePlatform', action='store_true',help="Do you wish to hide the platform number for each service due to arrive.")
@@ -818,13 +819,22 @@ device.contrast(255)
 energyMode = "normal"
 StartUpDate = datetime.now().date()
 
+HeaderStr =  board.GetHeader()
+HeaderPos = 0
+
+if (Args.Header == 'date' or Args.Header == 'loc') and Args.HeaderAlignment == 'center':
+    draw = ImageDraw.Draw(Image.new(device.mode, (device.width, FontSize)))
+    headerWidth = draw.textsize(HeaderStr, BasicFont)[0]
+    HeaderPos = device.width/2 -  headerWidth/2
+
+
 # Draws the clock and tells the rest of the display next frame wanted.
 def display():
     board.tick()
     msgTime = str(datetime.now().strftime("%H:%M:%S" if (Args.TimeFormat==24) else "%I:%M:%S"))	
     with canvas(device, background=image_composition()) as draw:
         image_composition.refresh()
-        draw.multiline_text((0, 0), board.GetHeader(), font=BasicFont)
+        draw.multiline_text((HeaderPos, 0), HeaderStr, font=BasicFont)
         draw.multiline_text(((device.width - draw.textsize(msgTime, FontTime)[0])/2, device.height-(TimeSize+1)), msgTime, font=FontTime, align="center")
 
 # Draws the splash screen on start up
@@ -832,7 +842,7 @@ def Splash():
     if Args.SplashScreen:
         with canvas(device) as draw:
             draw.multiline_text((64, 10), "Departure Board", font= ImageFont.truetype("%s/resources/Bold.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),20), align="center")
-            draw.multiline_text((45, 35), "Version : 2.5.NR -  By Jonathan Foot", font=ImageFont.truetype("%s/resources/Skinny.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
+            draw.multiline_text((45, 35), "Version : 2.6.NR -  By Jonathan Foot", font=ImageFont.truetype("%s/resources/Skinny.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
         time.sleep(30) #Wait such a long time to allow the device to startup and connect to a WIFI source first.
 
 
