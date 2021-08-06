@@ -65,6 +65,7 @@ parser.add_argument("--max-frames", default=60,dest='maxframes', type=check_posi
 parser.add_argument("--no-console-output",dest='NoConsole', action='store_true', help="Used to stop the program outputting anything to console that isn't an error message, you might want to do this if your logging the program output into a file to record crashes.")
 parser.add_argument("--filename",dest='filename', default="output.gif", help="Used mainly for development, if using a gifanim display, this can be used to set the output gif file name, this should always end in .gif.")
 parser.add_argument("--no-pip-update",dest='NoPipUpdate',  action='store_true', default=False, help="By default, the program will update any software dependencies/ pip libraries, this is to ensure your display still works correctly and has the required security updates. However, if you wish you can use this tag to disable pip updates and downloads. ")
+parser.add_argument("-a","--APIID", help="LEGACY - THIS IS NO LONGER USED OR NEEDED", type=str)
 
 
 # Defines all required paramaters
