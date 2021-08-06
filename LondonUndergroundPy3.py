@@ -709,6 +709,9 @@ def Splash():
 
 
 try:
+	if Args.APIID != None:
+		print("NOTICE: App ID is no longer required, please remove it from the parameters used.")
+
 	Splash()
 	# Run the program forever		
 	while True:
