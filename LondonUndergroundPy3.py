@@ -146,7 +146,6 @@ class LiveTime(object):
 		services = []
 
 		try:
-			print("https://api.tfl.gov.uk/StopPoint/%s/Arrivals?app_key=%s" %  (Args.StationID, Args.APIKey))
 			with urlopen("https://api.tfl.gov.uk/StopPoint/%s/Arrivals?app_key=%s" %  (Args.StationID, Args.APIKey)) as conn:
 				tempServices = json.loads(conn.read())
 				for service in tempServices:
