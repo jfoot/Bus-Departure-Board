@@ -112,7 +112,7 @@ class LiveTime(object):
 	def convertUTCtoLocal(self, dateTimeInput):
 		datetimeTemp = datetime.strptime(dateTimeInput, '%Y-%m-%dT%H:%M:%SZ')
 		datetimeTemp = datetimeTemp + (datetime.now() - datetime.utcnow())
-		return datetimeTemp.strftime('%Y-%m-%dT%H:%M:%SZ')
+		return datetimeTemp.strftime('%Y-%m-%dT%H:%M:%S')
 
 
 	#Returns the value to display the time on the board.
@@ -122,12 +122,12 @@ class LiveTime(object):
 		if self.TimeInMin() <= 1:
 			return ' Due'
 		elif self.TimeInMin() >=15 :
-			return ' ' + datetime.strptime(self.ExptArrival, '%Y-%m-%dT%H:%M:%SZ').strftime("%H:%M" if (Args.TimeFormat==24) else  "%I:%M")
+			return ' ' + datetime.strptime(self.ExptArrival, '%Y-%m-%dT%H:%M:%S').strftime("%H:%M" if (Args.TimeFormat==24) else  "%I:%M")
 		else:
 			return  ' %d mins' % self.TimeInMin()	
 
 	def TimeInMin(self):
-		return (datetime.strptime(self.ExptArrival, '%Y-%m-%dT%H:%M:%SZ') - datetime.now()).total_seconds() / 60
+		return (datetime.strptime(self.ExptArrival, '%Y-%m-%dT%H:%M:%S') - datetime.now()).total_seconds() / 60
 
 	# Returns true or false dependent upon if the last time an API data call was made was over the request limit; to prevent spamming the API feed.
 	@staticmethod
@@ -146,6 +146,7 @@ class LiveTime(object):
 		services = []
 
 		try:
+			print("https://api.tfl.gov.uk/StopPoint/%s/Arrivals?app_key=%s" %  (Args.StationID, Args.APIKey))
 			with urlopen("https://api.tfl.gov.uk/StopPoint/%s/Arrivals?app_key=%s" %  (Args.StationID, Args.APIKey)) as conn:
 				tempServices = json.loads(conn.read())
 				for service in tempServices:
@@ -704,7 +705,7 @@ def Splash():
 	if Args.SplashScreen:
 		with canvas(device) as draw:
 			draw.multiline_text((64, 10), "Departure Board", font= ImageFont.truetype("%s/resources/Bold.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),20), align="center")
-			draw.multiline_text((45, 35), "Version : 2.5.LU -  By Jonathan Foot", font=ImageFont.truetype("%s/resources/Skinny.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
+			draw.multiline_text((45, 35), "Version : 2.6.LU -  By Jonathan Foot", font=ImageFont.truetype("%s/resources/Skinny.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
 		time.sleep(30) #Wait such a long time to allow the device to startup and connect to a WIFI source first.
 
 
