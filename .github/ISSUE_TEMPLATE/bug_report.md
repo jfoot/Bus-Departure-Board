@@ -26,7 +26,9 @@ If applicable, add screenshots to help explain your problem.
 **Program information:**
  - Pi Type [e.g. Pi Zero WH]
  - Program [e.g. NationalBuses.py]
- - Version [e.g. 22]
+ - Stop/Station ID [e.g 3390LE02]
+ - Program Args [e.g --no-splashscreen]
+ - Version [e.g. V3.0.EX]
 
 **Additional context**
 Add any other context about the problem here.
