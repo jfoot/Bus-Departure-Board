@@ -471,14 +471,14 @@ class ScrollTime():
         self.IDisplayTime = ComposableImage(displayTimeTemp.image, position=(device.width - displayTimeTemp.width, Offset + (FontSize * self.position)))
     
         tempDisplayText =  TextImage(device, newService.DisplayText)
-
         sizeRemaining =  device.width - (displayTimeTemp.width + tempDisplayText.width)
 
-        displayDestinationTemp = VariableTextImage(device, newService.Destination, sizeRemaining)
-        self.IDestintion = ComposableImage(displayDestinationTemp.image, position=(self.IDisplayText.width, Offset + (FontSize * self.position)))
 
-        self.image_composition.add_image(self.IDisplayTime)
+        displayDestinationTemp = VariableTextImage(device, newService.Destination, sizeRemaining)
+        self.IDestintion = ComposableImage(displayDestinationTemp.image, position=(tempDisplayText.width, Offset + (FontSize * self.position)))
+  
         self.image_composition.add_image(self.IDestintion)
+        self.image_composition.add_image(self.IDisplayTime)
         self.image_composition.refresh()
 
 	# Called when you want to change the row from one service to another.
@@ -842,7 +842,7 @@ def Splash():
     if Args.SplashScreen:
         with canvas(device) as draw:
             draw.multiline_text((64, 10), "Departure Board", font= ImageFont.truetype("%s/resources/Bold.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),20), align="center")
-            draw.multiline_text((45, 35), "Version : 2.6.NR -  By Jonathan Foot", font=ImageFont.truetype("%s/resources/Skinny.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
+            draw.multiline_text((45, 35), "Version : 2.7.NR -  By Jonathan Foot", font=ImageFont.truetype("%s/resources/Skinny.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
         time.sleep(30) #Wait such a long time to allow the device to startup and connect to a WIFI source first.
 
 
