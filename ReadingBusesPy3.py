@@ -280,7 +280,7 @@ class LiveTime(object):
 					print("Unable to parse XML data, is your API Key correct? - " + e)
 			return services
 		except Exception as e:
-			print("GetData() ERROR - " + e)
+			print("GetData() ERROR")
 			print(str(e))
 			return []
 
