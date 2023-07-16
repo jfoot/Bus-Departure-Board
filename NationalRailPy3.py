@@ -1,4 +1,4 @@
-# This software was produced by Jonathan Foot (c) 2021, all rights reserved.
+# This software was produced by Jonathan Foot (c) 2023, all rights reserved.
 # Project Website : https://departureboard.jonathanfoot.com
 # Documentation   : https://jonathanfoot.com/Projects/DepartureBoard
 # Description     : This program allows you to display a live train departure board for any UK station nationally, excluding the London Underground.
@@ -269,8 +269,8 @@ class TextImage():
         draw = ImageDraw.Draw(self.image)
         draw.text((0, 0), text, font=BasicFont, fill="white")
     
-        self.width = draw.textsize(text, BasicFont)[0]
-        self.height = 5 + draw.textsize(text, BasicFont)[1]
+        self.width = int(draw.textlength(text, BasicFont))
+        self.height = 5 + int(draw.textlength(text, BasicFont, 'ttb'))
         del draw
 
 # Used to create the time on the board or any other basic text box.
@@ -281,15 +281,15 @@ class VariableTextImage():
         draw = ImageDraw.Draw(self.image)
         draw.text((0, 0), text, font=self.generateFont(text, sizeAllowed), fill="white")
     
-        self.width = 5 + draw.textsize(text, BasicFont)[0]
-        self.height = 5 + draw.textsize(text, BasicFont)[1]
+        self.width = 5 + int(draw.textlength(text, BasicFont))
+        self.height = 5 + int(draw.textlength(text, BasicFont, 'ttb'))
         del draw
     
     @staticmethod
     def generateFont(text, sizeAllowed):
         tempFontSize = 3
         font = ImageFont.truetype("%s/resources/lower.ttf" %(os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))), tempFontSize)
-        while font.getsize(text)[0] < sizeAllowed and tempFontSize <= FontSize-1:
+        while font.getlength(text) < sizeAllowed and tempFontSize <= FontSize-1:
             # iterate until the text size is just larger than the criteria
             tempFontSize += 1
             font = ImageFont.truetype("%s/resources/lower.ttf" %(os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))), tempFontSize)
@@ -307,8 +307,8 @@ class LongTextImage():
         draw = ImageDraw.Draw(self.image)
         draw.text((0, 0), text, font=BasicFont, fill="white")
     
-        self.width = 5 + draw.textsize(text, BasicFont)[0]
-        self.height = 5 + draw.textsize(text, BasicFont)[1]
+        self.width = 5 + int(draw.textlength(text, BasicFont))
+        self.height = 5 + int(draw.textlength(text, BasicFont, 'ttb'))
         del draw
 
 #Used for the opening animation, creates a static two lines of the new and previous service.
@@ -363,8 +363,8 @@ class NoService():
         draw = ImageDraw.Draw(self.image)
         draw.text((0, 0), msg, font=BasicFont, fill="white")
     
-        self.width = draw.textsize(msg, font=BasicFont)[0]
-        self.height = draw.textsize(msg, font=BasicFont)[1]
+        self.width = draw.textlength(msg, font=BasicFont)
+        self.height = draw.textlength(msg, font=BasicFont, direction='ttb')
         del draw
 
 
@@ -824,7 +824,7 @@ HeaderPos = 0
 
 if (Args.Header == 'date' or Args.Header == 'loc') and Args.HeaderAlignment == 'center':
     draw = ImageDraw.Draw(Image.new(device.mode, (device.width, FontSize)))
-    headerWidth = draw.textsize(HeaderStr, BasicFont)[0]
+    headerWidth = int(draw.textlength(HeaderStr, BasicFont))
     HeaderPos = device.width/2 -  headerWidth/2
 
 
@@ -835,14 +835,14 @@ def display():
     with canvas(device, background=image_composition()) as draw:
         image_composition.refresh()
         draw.multiline_text((HeaderPos, 0), HeaderStr, font=BasicFont)
-        draw.multiline_text(((device.width - draw.textsize(msgTime, FontTime)[0])/2, device.height-(TimeSize+1)), msgTime, font=FontTime, align="center")
+        draw.multiline_text(((device.width - int(draw.textlength(msgTime, FontTime)))/2, device.height-(TimeSize+1)), msgTime, font=FontTime, align="center")
 
 # Draws the splash screen on start up
 def Splash():
     if Args.SplashScreen:
         with canvas(device) as draw:
             draw.multiline_text((64, 10), "Departure Board", font= ImageFont.truetype("%s/resources/Bold.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),20), align="center")
-            draw.multiline_text((45, 35), "Version : 2.8.NR -  By Jonathan Foot", font=ImageFont.truetype("%s/resources/Skinny.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
+            draw.multiline_text((45, 35), "Version : 2.9.NR -  By Jonathan Foot", font=ImageFont.truetype("%s/resources/Skinny.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
         time.sleep(30) #Wait such a long time to allow the device to startup and connect to a WIFI source first.
 
 

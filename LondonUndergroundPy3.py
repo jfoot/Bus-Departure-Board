@@ -1,4 +1,4 @@
-# This software was produced by Jonathan Foot (c) 2021, all rights reserved.
+# This software was produced by Jonathan Foot (c) 2023, all rights reserved.
 # Project Website : https://departureboard.jonathanfoot.com
 # Documentation   : https://jonathanfoot.com/Projects/DepartureBoard
 # Description     :  This program allows you to display a live London Underground departure board for any Tube station.
@@ -185,8 +185,8 @@ class TextImage():
 		draw = ImageDraw.Draw(self.image)
 		draw.text((0, 0), text, font=BasicFont, fill="white")
 	
-		self.width = 5 + draw.textsize(text, BasicFont)[0]
-		self.height = 5 + draw.textsize(text, BasicFont)[1]
+		self.width = 5 + int(draw.textlength(text, BasicFont))
+		self.height = 5 + int(draw.textlength(text, BasicFont, 'ttb'))
 		del draw
 
 # Used to create the destination and via board.
@@ -197,7 +197,7 @@ class TextImageComplex():
 		draw.text((0, 0), destination, font=BasicFont, fill="white")
 		draw.text((device.width - startOffset, 0), via, font=BasicFont, fill="white")
 			
-		self.width = device.width + draw.textsize(via, BasicFont)[0]  - startOffset
+		self.width = device.width + int(draw.textlength(via, BasicFont))  - startOffset
 		self.height = 16
 		del draw
 
@@ -243,8 +243,8 @@ class NoService():
 		draw = ImageDraw.Draw(self.image)
 		draw.text((0, 0), msg, font=BasicFont, fill="white")
 	
-		self.width = draw.textsize(msg, font=BasicFont)[0]
-		self.height = draw.textsize(msg, font=BasicFont)[1]
+		self.width = int(draw.textlength(msg, font=BasicFont))
+		self.height = int(draw.textlength(msg, font=BasicFont, direction='ttb'))
 		del draw
 
 ###
@@ -697,14 +697,14 @@ def display():
 	msgTime = str(datetime.now().strftime("%H:%M:%S" if (Args.TimeFormat==24) else "%I:%M:%S"))	
 	with canvas(device, background=image_composition()) as draw:
 		image_composition.refresh()
-		draw.multiline_text(((device.width - draw.textsize(msgTime, FontTime)[0])/2, device.height-16), msgTime, font=FontTime, align="center")
+		draw.multiline_text(((device.width - int(draw.textlength(msgTime, FontTime)))/2, device.height-16), msgTime, font=FontTime, align="center")
 
 # Draws the splash screen on start up
 def Splash():
 	if Args.SplashScreen:
 		with canvas(device) as draw:
 			draw.multiline_text((64, 10), "Departure Board", font= ImageFont.truetype("%s/resources/Bold.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),20), align="center")
-			draw.multiline_text((45, 35), "Version : 2.7.LU -  By Jonathan Foot", font=ImageFont.truetype("%s/resources/Skinny.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
+			draw.multiline_text((45, 35), "Version : 2.8.LU -  By Jonathan Foot", font=ImageFont.truetype("%s/resources/Skinny.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
 		time.sleep(30) #Wait such a long time to allow the device to startup and connect to a WIFI source first.
 
 
