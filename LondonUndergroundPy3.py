@@ -76,7 +76,8 @@ Args = parser.parse_args()
 
 ## Defines all the programs "global" variables 
 # Defines the basic font used throughout most of the text boxes in the program
-BasicFont = ImageFont.truetype("%s/resources/lower.ttf" %(os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) ),14)
+BasicFontHeight = 14
+BasicFont = ImageFont.truetype("%s/resources/lower.ttf" %(os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) ), BasicFontHeight)
 
 
 ###
@@ -186,7 +187,7 @@ class TextImage():
 		draw.text((0, 0), text, font=BasicFont, fill="white")
 	
 		self.width = 5 + int(draw.textlength(text, BasicFont))
-		self.height = 5 + int(draw.textlength(text, BasicFont, 'ttb'))
+		self.height = 5 + BasicFontHeight
 		del draw
 
 # Used to create the destination and via board.
@@ -244,7 +245,7 @@ class NoService():
 		draw.text((0, 0), msg, font=BasicFont, fill="white")
 	
 		self.width = int(draw.textlength(msg, font=BasicFont))
-		self.height = int(draw.textlength(msg, font=BasicFont, direction='ttb'))
+		self.height = h
 		del draw
 
 ###
@@ -680,9 +681,10 @@ def print_safe(msg):
 ## Connects to the display and makes it update forever until ended by the user with a ctrl-c
 ###
 DisplayParser = cmdline.create_parser(description='Dynamically connect to either a vritual or physical display.')
-device = cmdline.create_device( DisplayParser.parse_args(['--display', str(Args.Display),'--interface','spi','--width','256','--rotate',str(Args.Rotation),'--max-frames',str(Args.maxframes)]))
+device = cmdline.create_device( DisplayParser.parse_args(['--display', str(Args.Display),'--interface','spi','--width','256','--rotate',str(Args.Rotation)]))
 if Args.Display == 'gifanim':
 	device._filename  = str(Args.filename)
+	device._max_frames = int(Args.maxframes)
 
 image_composition = ImageComposition(device)
 board = boardFixed(image_composition,Args.Delay,device)

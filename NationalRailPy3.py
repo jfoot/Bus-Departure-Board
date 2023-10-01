@@ -270,7 +270,7 @@ class TextImage():
         draw.text((0, 0), text, font=BasicFont, fill="white")
     
         self.width = int(draw.textlength(text, BasicFont))
-        self.height = 5 + int(draw.textlength(text, BasicFont, 'ttb'))
+        self.height = 4 + TimeSize
         del draw
 
 # Used to create the time on the board or any other basic text box.
@@ -282,7 +282,7 @@ class VariableTextImage():
         draw.text((0, 0), text, font=self.generateFont(text, sizeAllowed), fill="white")
     
         self.width = 5 + int(draw.textlength(text, BasicFont))
-        self.height = 5 + int(draw.textlength(text, BasicFont, 'ttb'))
+        self.height = 4 + TimeSize
         del draw
     
     @staticmethod
@@ -308,7 +308,7 @@ class LongTextImage():
         draw.text((0, 0), text, font=BasicFont, fill="white")
     
         self.width = 5 + int(draw.textlength(text, BasicFont))
-        self.height = 5 + int(draw.textlength(text, BasicFont, 'ttb'))
+        self.height = 4 + TimeSize
         del draw
 
 #Used for the opening animation, creates a static two lines of the new and previous service.
@@ -364,7 +364,7 @@ class NoService():
         draw.text((0, 0), msg, font=BasicFont, fill="white")
     
         self.width = draw.textlength(msg, font=BasicFont)
-        self.height = draw.textlength(msg, font=BasicFont, direction='ttb')
+        self.height = h
         del draw
 
 
@@ -808,9 +808,10 @@ def print_safe(msg):
 ## Connects to the display and makes it update forever until ended by the user with a ctrl-c
 ###
 DisplayParser = cmdline.create_parser(description='Dynamically connect to either a virtual or physical display.')
-device = cmdline.create_device( DisplayParser.parse_args(['--display', str(Args.Display),'--interface','spi','--width','256','--rotate',str(Args.Rotation),'--max-frames',str(Args.maxframes)]))
+device = cmdline.create_device( DisplayParser.parse_args(['--display', str(Args.Display),'--interface','spi','--width','256','--rotate',str(Args.Rotation)]))
 if Args.Display == 'gifanim':
-	device._filename  = str(Args.filename)
+    device._filename  = str(Args.filename)
+    device._max_frames = int(Args.maxframes)
 
 image_composition = ImageComposition(device)
 board = boardFixed(image_composition,Args.Delay,device)

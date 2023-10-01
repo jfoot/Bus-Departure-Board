@@ -82,7 +82,8 @@ Args = parser.parse_args()
 
 ## Defines all the programs "global" variables 
 # Defines the fonts used throughout most the program
-BasicFont = ImageFont.truetype("%s/resources/lower.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),14)
+BasicFontHeight = 14
+BasicFont = ImageFont.truetype("%s/resources/lower.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))), BasicFontHeight)
 SmallFont = ImageFont.truetype("%s/resources/lower.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),12)
 # To prevent unnecessary calls to the API we assume a service will always follow the same route throughout the day 
 # Once we have got the destination for that service and it's "Via" message we save it here to be looked up if needed again.
@@ -262,7 +263,7 @@ class TextImage():
 		draw.text((0, 0), text, font=BasicFont, fill="white")
 	
 		self.width = 5 + int(draw.textlength(text, BasicFont))
-		self.height = 5 + int(draw.textlength(text, BasicFont, 'ttb'))
+		self.height = 5 + BasicFontHeight
 		del draw
 
 # Used to create the Service number text box, due to needing to adjust font size dynamically.
@@ -273,7 +274,7 @@ class TextImageServiceNumber():
 		draw.text((0, 0), text, font=BasicFont if len(text) <= 3 else SmallFont, fill="white")
 	
 		self.width = 5 + int(draw.textlength(text, BasicFont))
-		self.height = 5 + int(draw.textlength(text, BasicFont, 'ttb'))		
+		self.height = 5 + BasicFontHeight
 		del draw
 
 #Used to create the destination and via board.
@@ -333,7 +334,7 @@ class NoService():
 		draw.text((0, 0), msg, font=BasicFont, fill="white")
 	
 		self.width = int(draw.textlength(msg, font=BasicFont))
-		self.height = int(draw.textlength(msg, font=BasicFont, direction='ttb'))
+		self.height = h
 		del draw
 
 
@@ -721,9 +722,10 @@ def print_safe(msg):
 ## Connects to the display and makes it update forever until ended by the user with a ctrl-c
 ###
 DisplayParser = cmdline.create_parser(description='Dynamically connect to either a virtual or physical display.')
-device = cmdline.create_device( DisplayParser.parse_args(['--display', str(Args.Display),'--interface','spi','--width','256','--rotate',str(Args.Rotation),'--max-frames',str(Args.maxframes)]))
+device = cmdline.create_device( DisplayParser.parse_args(['--display', str(Args.Display),'--interface','spi','--width','256','--rotate',str(Args.Rotation)]))
 if Args.Display == 'gifanim':
 	device._filename  = str(Args.filename)
+	device._max_frames = int(Args.maxframes)
 
 image_composition = ImageComposition(device)
 board = boardFixed(image_composition,Args.Delay,device)
