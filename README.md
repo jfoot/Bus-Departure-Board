@@ -29,6 +29,8 @@ If you're still using the Python2 versions and would like to upgrade to Python3,
 
 If you're currently using an old version of the Reading Buses program that uses the old Reading Buses API and would like help changing to the new API please read the [help pages here](https://update2.jonathanfoot.com/)
 
+If you're using an old version of Pillow (9 or lower), use the files in the /legacy/ folder instead.
+
 ## Bug Reporting
 If you've found a bug and would like to report it please create a GitHub issue or send me an email about it and if I'm not to busy I will try to fix it.
 

@@ -76,7 +76,8 @@ Args = parser.parse_args()
 
 ## Defines all the programs "global" variables 
 # Defines the basic font used throughout most of the text boxes in the program
-BasicFont = ImageFont.truetype("%s/resources/lower.ttf" %(os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) ),14)
+BasicFontHeight = 14
+BasicFont = ImageFont.truetype("%s/resources/lower.ttf" %(os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) ), BasicFontHeight)
 
 # To prevent unnecessary calls to the API we assume a service will always follow the same route throughout the day 
 # Once we have got the destination for that service and it's "Via" message we save it here to be looked up if needed again.
@@ -297,8 +298,8 @@ class TextImage():
 		draw = ImageDraw.Draw(self.image)
 		draw.text((0, 0), text, font=BasicFont, fill="white")
 	
-		self.width = 5 + draw.textsize(text, BasicFont)[0]
-		self.height = 5 + draw.textsize(text, BasicFont)[1]
+		self.width = 5 + int(draw.textlength(text, BasicFont))
+		self.height = 5 + BasicFontHeight
 		del draw
 
 # Used to create the destination and via board.
@@ -309,7 +310,7 @@ class TextImageComplex():
 		draw.text((0, 0), destination, font=BasicFont, fill="white")
 		draw.text((device.width - startOffset, 0), via, font=BasicFont, fill="white")
 			
-		self.width = device.width + draw.textsize(via, BasicFont)[0]  - startOffset
+		self.width = device.width + int(draw.textlength(via, BasicFont))  - startOffset
 		self.height = 16
 		del draw
 
@@ -357,8 +358,8 @@ class NoService():
 		draw = ImageDraw.Draw(self.image)
 		draw.text((0, 0), msg, font=BasicFont, fill="white")
 	
-		self.width = draw.textsize(msg, font=BasicFont)[0]
-		self.height = draw.textsize(msg, font=BasicFont)[1]
+		self.width = int(draw.textlength(msg, font=BasicFont))
+		self.height = h
 		del draw
 
 ###
@@ -738,9 +739,10 @@ def print_safe(msg):
 ## Connects to the display and makes it update forever until ended by the user with a ctrl-c
 ###
 DisplayParser = cmdline.create_parser(description='Dynamically connect to either a vritual or physical display.')
-device = cmdline.create_device( DisplayParser.parse_args(['--display', str(Args.Display),'--interface','spi','--width','256','--rotate',str(Args.Rotation),'--max-frames',str(Args.maxframes)]))
+device = cmdline.create_device(DisplayParser.parse_args(['--display', str(Args.Display),'--interface','spi','--width','256','--rotate',str(Args.Rotation)]))
 if Args.Display == 'gifanim':
 	device._filename  = str(Args.filename)
+	device._max_frames = int(Args.maxframes)
 
 image_composition = ImageComposition(device)
 board = boardFixed(image_composition,Args.Delay,device)
@@ -755,14 +757,14 @@ def display():
 	msgTime = str(datetime.now().strftime("%H:%M" if (Args.TimeFormat==24) else "%I:%M"))	
 	with canvas(device, background=image_composition()) as draw:
 		image_composition.refresh()
-		draw.multiline_text(((device.width - draw.textsize(msgTime, FontTime)[0])/2, device.height-16), msgTime, font=FontTime, align="center")
+		draw.multiline_text(((device.width - int(draw.textlength(msgTime, FontTime)))/2, device.height-16), msgTime, font=FontTime, align="center")
 
 # Draws the splash screen on start up
 def Splash():
 	if Args.SplashScreen:
 		with canvas(device) as draw:
 			draw.multiline_text((64, 10), "Departure Board", font= ImageFont.truetype("%s/resources/Bold.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),20), align="center")
-			draw.multiline_text((45, 35), "Version : 3.2.RB -  By Jonathan Foot", font=ImageFont.truetype("%s/resources/Skinny.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
+			draw.multiline_text((45, 35), "Version : 3.3.RB -  By Jonathan Foot", font=ImageFont.truetype("%s/resources/Skinny.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
 		time.sleep(30) #Wait such a long time to allow the device to startup and connect to a WIFI source first.
 
 
