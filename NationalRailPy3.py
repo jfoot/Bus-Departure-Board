@@ -149,7 +149,7 @@ class LiveTime(object):
         self.ExptArrival = self.GetExpectedArrivalTime(Data)    
         self.DisplayTime =  self.GetExptTime()
         # The text displayed showing where the train will be stopping at along the way.
-        self.CallingAt = str([cp.location_name for cp in Data.subsequent_calling_points]).replace(']','').replace('[','')
+        self.CallingAt = str([cp.location_name for cp in Data.subsequent_calling_points]).replace(']','').replace('[','').replace('\'','')
         self.Platform = str(serviceC.platform) if serviceC.platform != None else ""
         self.ID =  str(serviceC.service_id)
         self.Operator = str(Data.operator_name)
@@ -843,7 +843,7 @@ def Splash():
     if Args.SplashScreen:
         with canvas(device) as draw:
             draw.multiline_text((64, 10), "Departure Board", font= ImageFont.truetype("%s/resources/Bold.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),20), align="center")
-            draw.multiline_text((45, 35), "Version : 2.9.NR -  By Jonathan Foot", font=ImageFont.truetype("%s/resources/Skinny.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
+            draw.multiline_text((45, 35), "Version : 2.10.NR -  By Jonathan Foot", font=ImageFont.truetype("%s/resources/Skinny.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
         time.sleep(30) #Wait such a long time to allow the device to startup and connect to a WIFI source first.
 
 
