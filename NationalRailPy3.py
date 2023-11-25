@@ -68,7 +68,9 @@ parser.add_argument("--Display", default="ssd1322", choices=['ssd1322','pygame',
 parser.add_argument("--max-frames", default=60,dest='maxframes', type=check_positive, help="Used only when using gifanim emulator, sets how long the gif should be.")
 parser.add_argument("--no-console-output",dest='NoConsole', action='store_true', help="Used to stop the program outputting anything to console that isn't an error message, you might want to do this if your logging the program output into a file to record crashes.")
 parser.add_argument("--filename",dest='filename', default="output.gif", help="Used mainly for development, if using a gifanim display, this can be used to set the output gif file name, this should always end in .gif.")
-#parser.add_argument("--no-pip-update",dest='NoPipUpdate',  action='store_true', default=False, help="By default, the program will update any software dependencies/ pip libraries, this is to ensure your display still works correctly and has the required security updates. However, if you wish you can use this tag to disable pip updates and downloads. ")
+parser.add_argument("--PartialAnimations", help="Only show the Via animation for the top service and cycle faster through the services", dest='PartialAnimations', action='store_true')
+parser.add_argument("--SortByActual", help="By default services will be displayed in the order of their scheduled departure time. Use this flag to sort by their Actual/Expected departure time if this is known.", dest='SortByActual', action='store_true')
+
 
 
 # Defines the required paramaters
@@ -230,6 +232,19 @@ class LiveTime(object):
         return ("min" in self.ExptArrival) and (datetime.now() - self.LastStaticUpdate).total_seconds() > Args.StaticUpdateLimit 
 
 
+    @staticmethod
+    def sort_key(train):
+        def convert_to_datetime(time_str):
+            try:
+                return datetime.strptime(time_str, "%H:%M")
+            except (ValueError, TypeError):
+                return None
+
+        real_departure = convert_to_datetime(train.etd) if train.etd is not None else convert_to_datetime(train.eta)
+        scheduled_departure = convert_to_datetime(train.std) if train.std is not None else convert_to_datetime(train.sta)
+
+        return (real_departure if real_departure is not None else scheduled_departure)
+
 	# Calls the API and gets the data from it, returning a list of LiveTime objects to be used in the program.
 	# * Change this method to implement your own API *
     @staticmethod
@@ -243,7 +258,13 @@ class LiveTime(object):
             global StationName
             StationName = board.location_name
 
-            for serviceC in board.train_services:
+            # Sort by the actual expected departure time, instead of the scheduled.
+            if Args.SortByActual:
+                sorted_train_list = sorted(board.train_services, key=LiveTime.sort_key)
+            else:
+                sorted_train_list = board.train_services
+
+            for serviceC in sorted_train_list:
                 if len(services) >= Args.NumberOfCards:
                     break
                 service = darwin_sesh.get_service_details(serviceC.service_id)
@@ -255,6 +276,7 @@ class LiveTime(object):
             print("GetData() ERROR")
             print(str(e))
             return []
+
 
 
 ###
@@ -543,9 +565,7 @@ class ScrollTime():
             self.IDisplayTime = ComposableImage(displayTimeTemp.image, position=(device.width - displayTimeTemp.width, Offset + (FontSize * self.position)))           
             self.image_composition.add_image(self.IDisplayTime)
             self.image_composition.refresh()
-
-
-
+       
         if self.state == self.WAIT_OPENING:
             if not self.is_waiting():
                 self.state = self.OPENING_SCROLL
@@ -576,6 +596,8 @@ class ScrollTime():
                     if self.synchroniser.is_synchronised():
                         self.synchroniser.busy(self)
                         if Args.ReducedAnimations or (self.DirectService and not Args.ShowDirect):
+                            self.state = self.WAIT_SYNC
+                        elif Args.PartialAnimations and self.position != 0:
                             self.state = self.WAIT_SYNC
                         elif self.CurrentService.ID == "0":
                             self.synchroniser.ready(self)
@@ -843,8 +865,8 @@ def Splash():
     if Args.SplashScreen:
         with canvas(device) as draw:
             draw.multiline_text((64, 10), "Departure Board", font= ImageFont.truetype("%s/resources/Bold.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),20), align="center")
-            draw.multiline_text((45, 35), "Version : 2.10.NR -  By Jonathan Foot", font=ImageFont.truetype("%s/resources/Skinny.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
-        time.sleep(30) #Wait such a long time to allow the device to startup and connect to a WIFI source first.
+            draw.multiline_text((45, 35), "Version : 2.11.NR -  By Jonathan Foot", font=ImageFont.truetype("%s/resources/Skinny.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
+        time.sleep(30) # Wait such a long time to allow the device to startup and connect to a WIFI source first.
 
 
 try:
