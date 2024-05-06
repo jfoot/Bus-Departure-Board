@@ -706,7 +706,7 @@ def Splash():
 	if Args.SplashScreen:
 		with canvas(device) as draw:
 			draw.multiline_text((64, 10), "Departure Board", font= ImageFont.truetype("%s/resources/Bold.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),20), align="center")
-			draw.multiline_text((45, 35), "Version : 2.8.LU -  By Jonathan Foot", font=ImageFont.truetype("%s/resources/Skinny.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
+			draw.multiline_text((45, 35), "Version : 2.9.LU -  By Jonathan Foot", font=ImageFont.truetype("%s/resources/Skinny.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
 		time.sleep(30) #Wait such a long time to allow the device to startup and connect to a WIFI source first.
 
 
@@ -727,10 +727,10 @@ try:
 		# Turns the display into one of the energy saving modes if in the correct time and enabled.
 		if (Args.EnergySaverMode != "none" and is_time_between()):
 			# Check for program updates and restart the pi every 'UpdateDays' Days.
-			if (datetime.now().date() - StartUpDate).days >= Args.UpdateDays:
-				print_safe("Checking for updates and then restarting Pi.")
-				os.system("sudo git -C %s pull; sudo reboot" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))))
-				sys.exit()
+			# if (datetime.now().date() - StartUpDate).days >= Args.UpdateDays:
+			# 	print_safe("Checking for updates and then restarting Pi.")
+			# 	os.system("sudo git -C %s pull; sudo reboot" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))))
+			# 	sys.exit()
 			if Args.EnergySaverMode == "dim":
 				if energyMode == "normal":
 					device.contrast(15)
