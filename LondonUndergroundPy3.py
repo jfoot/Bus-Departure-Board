@@ -530,18 +530,21 @@ class ScrollTime():
 	
 	# Used to reset the image on the display.
 	def refresh(self):
-		if self.state != self.TRAIN_APPROACHING:
-			self.image_composition.remove_image(self.IDestination)
-			self.image_composition.remove_image(self.IDisplayTime)
-			self.image_composition.add_image(self.IDestination)
-			self.image_composition.add_image(self.IDisplayTime)
-		else:
-			if self.Alternator % 18 < 9:
-				self.image_composition.remove_image(self.TrainApproaching)
-				self.image_composition.add_image(self.TrainApproaching)
+		try:
+			if self.state != self.TRAIN_APPROACHING:
+				self.image_composition.remove_image(self.IDestination)
+				self.image_composition.remove_image(self.IDisplayTime)
+				self.image_composition.add_image(self.IDestination)
+				self.image_composition.add_image(self.IDisplayTime)
 			else:
-				self.image_composition.remove_image(self.rectangle)
-				self.image_composition.add_image(self.rectangle)
+				if self.Alternator % 18 < 9:
+					self.image_composition.remove_image(self.TrainApproaching)
+					self.image_composition.add_image(self.TrainApproaching)
+				else:
+					self.image_composition.remove_image(self.rectangle)
+					self.image_composition.add_image(self.rectangle)
+		except:
+			pass   # This is awful, but quick fix for #36
 
 
 	# Used to add a partner; this is the row below it self. Used when needed to tell partner to redraw itself
@@ -706,7 +709,7 @@ def Splash():
 	if Args.SplashScreen:
 		with canvas(device) as draw:
 			draw.multiline_text((64, 10), "Departure Board", font= ImageFont.truetype("%s/resources/Bold.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),20), align="center")
-			draw.multiline_text((45, 35), "Version : 2.9.LU -  By Jonathan Foot", font=ImageFont.truetype("%s/resources/Skinny.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
+			draw.multiline_text((45, 35), "Version : 2.10.LU -  By Jonathan Foot", font=ImageFont.truetype("%s/resources/Skinny.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
 		time.sleep(30) #Wait such a long time to allow the device to startup and connect to a WIFI source first.
 
 
