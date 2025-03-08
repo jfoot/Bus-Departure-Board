@@ -4,17 +4,19 @@
 # Description     :  This program allows you to display a live London Underground departure board for any Tube station.
 # Python 3 Required.
 
-import json
-import time
-import inspect,os
-import sys
 import argparse
-from urllib.request import urlopen
-from PIL import ImageFont, Image, ImageDraw
-from luma.core.render import canvas
-from luma.core import cmdline
+import inspect
+import json
+import os
+import time
 from datetime import datetime
+from urllib.request import urlopen, Request
+
+from PIL import ImageFont, Image, ImageDraw
+from luma.core import cmdline
 from luma.core.image_composition import ImageComposition, ComposableImage
+from luma.core.render import canvas
+
 
 ###
 # Below Declares all the program optional and compulsory settings/ start up paramters. 
@@ -146,16 +148,18 @@ class LiveTime(object):
 		LiveTime.LastUpdate = datetime.now()
 		services = []
 
+		url = "https://api.tfl.gov.uk/StopPoint/%s/Arrivals?app_id=%s&app_key=%s" % (Args.StationID, Args.APIKey, Args.APIKey)
+		req = Request(url, headers={"User-Agent": "Mozilla/5.0"})
 		try:
-			with urlopen("https://api.tfl.gov.uk/StopPoint/%s/Arrivals?app_key=%s" %  (Args.StationID, Args.APIKey)) as conn:
+			with urlopen(req) as conn:
 				tempServices = json.loads(conn.read())
 				for service in tempServices:
 					# If not in excluded services list, convert custom API object to LiveTime object and add to list.
 					if str(service['lineName']) not in Args.ExcludeLines:
 						if Args.Direction == 'both' or ("direction" in service and Args.Direction == str(service["direction"])):
 							services.append(LiveTime(service))
-							
-			services.sort(key=lambda x: x.TimeInMin())	
+
+			services.sort(key=lambda x: x.TimeInMin())
 
 			if Args.ShowIndex:
 				x = 1
@@ -709,7 +713,7 @@ def Splash():
 	if Args.SplashScreen:
 		with canvas(device) as draw:
 			draw.multiline_text((64, 10), "Departure Board", font= ImageFont.truetype("%s/resources/Bold.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),20), align="center")
-			draw.multiline_text((45, 35), "Version : 2.10.LU -  By Jonathan Foot", font=ImageFont.truetype("%s/resources/Skinny.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
+			draw.multiline_text((45, 35), "Version : 2.11.LU -  By Jonathan Foot", font=ImageFont.truetype("%s/resources/Skinny.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
 		time.sleep(30) #Wait such a long time to allow the device to startup and connect to a WIFI source first.
 
 
