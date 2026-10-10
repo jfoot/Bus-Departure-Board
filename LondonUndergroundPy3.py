@@ -5,9 +5,12 @@
 # Python 3 Required.
 
 import argparse
+import atexit
+import collections
 import inspect
 import json
 import os
+import threading
 import time
 from datetime import datetime
 from urllib.request import urlopen, Request
@@ -68,6 +71,9 @@ parser.add_argument("--no-console-output",dest='NoConsole', action='store_true',
 parser.add_argument("--filename",dest='filename', default="output.gif", help="Used mainly for development, if using a gifanim display, this can be used to set the output gif file name, this should always end in .gif.")
 #parser.add_argument("--no-pip-update",dest='NoPipUpdate',  action='store_true', default=False, help="By default, the program will update any software dependencies/ pip libraries, this is to ensure your display still works correctly and has the required security updates. However, if you wish you can use this tag to disable pip updates and downloads. ")
 parser.add_argument("-a","--APIID", help="LEGACY - THIS IS NO LONGER USED OR NEEDED", type=str)
+parser.add_argument("-c","--ShowTemperature", "--ShowTemp", "--ShowEnvironment", dest="ShowTemperature", action="store_true", default=False, help="Show live temperature in C and humidity percentage next to the time at the bottom of the display; off by default.")
+parser.add_argument("--SensorPin", dest="SensorPin", type=int, default=4, help="GPIO pin (BCM numbering) connected to DHT11 DATA line; default is 4 (board.D4).")
+parser.add_argument("--SensorInterval", dest="SensorInterval", type=float, default=2.5, help="Sampling interval in seconds for the DHT11 sensor (minimum 2.0s); default is 2.5.")
 
 
 # Defines all required paramaters
@@ -684,6 +690,81 @@ def print_safe(msg):
 
 
 ###
+# DHT11 Sensor Reader
+# Continuously samples temperature and humidity in a background thread to prevent
+# blocking display animations, with 5-reading moving average smoothing and graceful error handling.
+###
+class DHT11SensorReader:
+	def __init__(self, pin_number=4, interval=2.5, history_size=5):
+		self.pin_number = pin_number
+		self.interval = max(float(interval), 2.0)
+		self.history_size = int(history_size)
+		self.temp_history = collections.deque(maxlen=self.history_size)
+		self.hum_history = collections.deque(maxlen=self.history_size)
+		self.lock = threading.Lock()
+		self.current_temp = None
+		self.current_hum = None
+		self.running = False
+		self.thread = None
+		self.dht_device = None
+
+	def start(self):
+		try:
+			import board
+			import adafruit_dht
+		except ImportError as e:
+			print_safe("Warning: Could not import 'board' or 'adafruit_dht' (%s). Sensor readings disabled." % e)
+			return False
+
+		try:
+			pin = getattr(board, "D%s" % self.pin_number)
+			self.dht_device = adafruit_dht.DHT11(pin)
+		except Exception as e:
+			print_safe("Warning: Failed to initialize DHT11 sensor on pin D%s: %s" % (self.pin_number, e))
+			return False
+
+		self.running = True
+		self.thread = threading.Thread(target=self._read_loop, daemon=True)
+		self.thread.start()
+		print_safe("DHT11 sensor reader started on GPIO %s (sampling every %.1fs)." % (self.pin_number, self.interval))
+		return True
+
+	def _read_loop(self):
+		while self.running:
+			try:
+				temp = self.dht_device.temperature
+				hum = self.dht_device.humidity
+				if temp is not None and hum is not None:
+					if 0 <= temp <= 60 and 0 <= hum <= 100:
+						with self.lock:
+							self.temp_history.append(temp)
+							self.hum_history.append(hum)
+							self.current_temp = sum(self.temp_history) / len(self.temp_history)
+							self.current_hum = sum(self.hum_history) / len(self.hum_history)
+			except RuntimeError:
+				# Timing jitter or checksum failure on non-RT Linux; retain previous frame and ignore
+				pass
+			except Exception:
+				# Catch any other transient driver/sensor exceptions to keep the thread alive
+				pass
+
+			time.sleep(self.interval)
+
+	def get_readings(self):
+		with self.lock:
+			return self.current_temp, self.current_hum
+
+	def stop(self):
+		self.running = False
+		if self.dht_device is not None:
+			try:
+				self.dht_device.exit()
+			except Exception:
+				pass
+			self.dht_device = None
+
+
+###
 ## Main
 ## Connects to the display and makes it update forever until ended by the user with a ctrl-c
 ###
@@ -700,13 +781,30 @@ device.contrast(255)
 energyMode = "normal"
 StartUpDate = datetime.now().date()
 
+sensor_reader = None
+if Args.ShowTemperature:
+	sensor_reader = DHT11SensorReader(pin_number=Args.SensorPin, interval=Args.SensorInterval)
+	if not sensor_reader.start():
+		sensor_reader = None
+	else:
+		atexit.register(sensor_reader.stop)
+
 # Draws the clock and tells the rest of the display next frame wanted.
 def display():
 	board.tick()
-	msgTime = str(datetime.now().strftime("%H:%M:%S" if (Args.TimeFormat==24) else "%I:%M:%S"))	
+	msgTime = str(datetime.now().strftime("%H:%M:%S" if (Args.TimeFormat==24) else "%I:%M:%S"))
+	if Args.ShowTemperature and sensor_reader is not None:
+		temp, hum = sensor_reader.get_readings()
+		if temp is not None and hum is not None:
+			bottomText = "%s  %.1fC  %d%%" % (msgTime, temp, int(round(hum)))
+		else:
+			bottomText = "%s  --.-C  --%%" % msgTime
+	else:
+		bottomText = msgTime
+
 	with canvas(device, background=image_composition()) as draw:
 		image_composition.refresh()
-		draw.multiline_text(((device.width - int(draw.textlength(msgTime, FontTime)))/2, device.height-16), msgTime, font=FontTime, align="center")
+		draw.multiline_text(((device.width - int(draw.textlength(bottomText, FontTime)))/2, device.height-16), bottomText, font=FontTime, align="center")
 
 # Draws the splash screen on start up
 def Splash():
@@ -760,3 +858,6 @@ try:
 			display()
 except KeyboardInterrupt:
 	pass
+finally:
+	if sensor_reader is not None:
+		sensor_reader.stop()
