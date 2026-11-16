@@ -8,6 +8,8 @@ import time
 import inspect,os
 import sys
 import json
+import random
+import socket
 import argparse
 from urllib.request import urlopen
 from PIL import ImageFont, Image, ImageDraw
@@ -68,6 +70,7 @@ parser.add_argument("--Display", default="ssd1322", choices=['ssd1322','pygame',
 parser.add_argument("--max-frames", default=60,dest='maxframes', type=check_positive, help="Used only when using gifanim emulator, sets how long the gif should be.")
 parser.add_argument("--no-console-output",dest='NoConsole', action='store_true', help="Used to stop the program outputting anything to console that isn't an error message, you might want to do this if your logging the program output into a file to record crashes.")
 parser.add_argument("--filename",dest='filename', default="output.gif", help="Used mainly for development, if using a gifanim display, this can be used to set the output gif file name, this should always end in .gif.")
+parser.add_argument("--RequestTimeout", dest="RequestTimeout", type=check_positive, default=30, help="Defines the maximum time in seconds to wait for a network request before timing out; default is 30(seconds)")
 # parser.add_argument("--no-pip-update",dest='NoPipUpdate',  action='store_true', default=False, help="By default, the program will update any software dependencies/ pip libraries, this is to ensure your display still works correctly and has the required security updates. However, if you wish you can use this tag to disable pip updates and downloads. ")
 
 
@@ -79,6 +82,7 @@ requiredNamed.add_argument("-s","--StopID", help="The Naptan Code for the specif
 requiredNamed.add_argument("-b","--NextBus", choices=['yes','no'],default='no', help="Some regions (mainly any region outside London) need the NextBus API to get live data, you are however limited to only 100 API calls per day (around 1.5hrs on normal request limit settings). Once you have exceeded this limit the display cannot get any more data. Instead we recommend only getting scheduled arrival times, not using the NextBus API for full *day usage. *Assuming Energy saving mode is enabled.", type=str,required=True)
 
 Args = parser.parse_args()
+socket.setdefaulttimeout(Args.RequestTimeout)
 
 ## Defines all the programs "global" variables 
 # Defines the fonts used throughout most the program
@@ -120,6 +124,8 @@ class LiveTimeStud():
 class LiveTime(object):
 	# The last time an API call was made to get new data.
 	LastUpdate = datetime.now()
+	ConsecutiveErrors = 0
+	NextRetryDelay = Args.RequestLimit
 
 	# * Change this method to implement your own API *
 	def __init__(self, Data, Index):
@@ -148,6 +154,16 @@ class LiveTime(object):
 			return ' ' + Arrival.time().strftime("%H:%M" if (Args.TimeFormat==24) else  "%I:%M")
 		return  ' %d min' % Diff
 
+	def TimeInMin(self):
+		try:
+			Arrival = datetime.strptime(str(datetime.now().date()) + " " + self.ExptArrival, '%Y-%m-%d %H:%M')
+			diff = (Arrival - datetime.now()).total_seconds() / 60
+			if diff < -720:
+				diff += 1440
+			return diff
+		except Exception:
+			return 0
+
 	def GetServiceNumber(self, Data, Index):
 		if Args.ServiceName == "1":
 			return "%s.%s" % (Index + 1,str(Data['line'])) if Args.ShowIndex else str(Data['line']) 
@@ -173,7 +189,7 @@ class LiveTime(object):
 		#Else this is the first time finding this service so look it up.
 		ViasTemp = []
 		try:
-			tempLocs = json.loads(urlopen(self.ID).read())
+			tempLocs = json.loads(urlopen(self.ID, timeout=Args.RequestTimeout).read())
 
 			if Args.Destination == "2":
 				Dest[Service] = tempLocs['stops'][-1]['stop_name']
@@ -221,7 +237,7 @@ class LiveTime(object):
 	# Returns true or false dependent upon if the last time an API data call was made was over the request limit; to prevent spamming the API feed.
 	@staticmethod
 	def TimePassed():
-		return (datetime.now() - LiveTime.LastUpdate).total_seconds() > Args.RequestLimit
+		return (datetime.now() - LiveTime.LastUpdate).total_seconds() > LiveTime.NextRetryDelay
 
 	# Return true or false dependent upon if the last time the display was updated was over the static update limit. This prevents updating the display to frequently to increase performance.
 	def TimePassedStatic(self):
@@ -236,17 +252,22 @@ class LiveTime(object):
 		services = []
 		
 		try:
-			with urlopen("https://transportapi.com/v3/uk/bus/stop/%s/live.json?app_id=%s&app_key=%s&group=no&limit=%s&nextbuses=%s" %  (Args.StopID, Args.APIID, Args.APIKey, max(3,Args.NumberOfCards),Args.NextBus)) as conn:
+			with urlopen("https://transportapi.com/v3/uk/bus/stop/%s/live.json?app_id=%s&app_key=%s&group=no&limit=%s&nextbuses=%s" %  (Args.StopID, Args.APIID, Args.APIKey, max(3,Args.NumberOfCards),Args.NextBus), timeout=Args.RequestTimeout) as conn:
 				tempServices = json.loads(conn.read())
 				for service in tempServices['departures']['all']:
 					# If not in excluded services list, convert custom API object to LiveTime object and add to list.
 					if str(service['line']) not in Args.ExcludeServices:
 						services.append(LiveTime(service, len(services)))
+				LiveTime.ConsecutiveErrors = 0
+				LiveTime.NextRetryDelay = Args.RequestLimit
 				return services
 		except Exception as e:
+			LiveTime.ConsecutiveErrors += 1
+			base_backoff = min(float(Args.RequestLimit) * (2 ** (LiveTime.ConsecutiveErrors - 1)), 300.0)
+			LiveTime.NextRetryDelay = base_backoff * random.uniform(0.85, 1.15)
 			print("GetData() ERROR")
 			print(str(e))
-			return []
+			return None
 
 
 
@@ -467,17 +488,14 @@ class ScrollTime():
 
 	# Used when you want to delete the row/object.
 	def delete(self):
-		try:
-			self.image_composition.remove_image(self.IStaticOld)
-			self.image_composition.remove_image(self.rectangle)
-		except:
-			pass
-		try:
-			self.image_composition.remove_image(self.IDestination)
-			self.image_composition.remove_image(self.IServiceNumber)
-			self.image_composition.remove_image(self.IDisplayTime)
-		except:
-			pass  
+		for attr in ('IStaticOld', 'rectangle', 'IDestination', 'IServiceNumber', 'IDisplayTime'):
+			if hasattr(self, attr):
+				img = getattr(self, attr)
+				if img is not None:
+					try:
+						self.image_composition.remove_image(img)
+					except Exception:
+						pass
 		self.image_composition.refresh() 
 
 	# Called upon each time you want to get the next frame for the display.
@@ -583,13 +601,16 @@ class ScrollTime():
 
 	# Used to reset the image on the display.
 	def refresh(self):
-		if hasattr(self, 'IDestination') and  hasattr(self, 'IServiceNumber') and hasattr(self, 'IDisplayTime'):
-			self.image_composition.remove_image(self.IDestination)
-			self.image_composition.remove_image(self.IServiceNumber)
-			self.image_composition.remove_image(self.IDisplayTime)
-			self.image_composition.add_image(self.IDestination)
-			self.image_composition.add_image(self.IServiceNumber)
-			self.image_composition.add_image(self.IDisplayTime)
+		try:
+			if hasattr(self, 'IDestination') and  hasattr(self, 'IServiceNumber') and hasattr(self, 'IDisplayTime'):
+				self.image_composition.remove_image(self.IDestination)
+				self.image_composition.remove_image(self.IServiceNumber)
+				self.image_composition.remove_image(self.IDisplayTime)
+				self.image_composition.add_image(self.IDestination)
+				self.image_composition.add_image(self.IServiceNumber)
+				self.image_composition.add_image(self.IDisplayTime)
+		except Exception:
+			pass
 
 	# Used to add a partner; this is the row below it self. Used when needed to tell partner to redraw itself
 	# on top of the row above it (layering the text boxes correctly)
@@ -611,12 +632,16 @@ class ScrollTime():
 ###
 class boardFixed():
 	def __init__(self, image_composition, scroll_delay, device):
-		self.Services = LiveTime.GetData()   
+		data = LiveTime.GetData()
+		self.Services = data if data is not None else []
 		self.synchroniser = Synchroniser()
 		self.scroll_delay = scroll_delay
 		self.image_composition = image_composition
 		self.device = device
 		self.ticks = 0
+		self.recovery_start = None
+		self.recovery_wait_seconds = None
+		self.no_services_showing = False
 		self.setInitalCards()
 		self.State = "alive"
 	
@@ -637,8 +662,12 @@ class boardFixed():
 	def tick(self):
 		#If no data can be found.
 		if len(self.Services) == 0:
-			if self.ticks == 0:
+			if not self.no_services_showing:
+				self.top.delete()
+				self.middel.delete()
+				self.bottom.delete()
 				self.image_composition.add_image(self.NoServices)
+				self.no_services_showing = True
 
 			#Wait a period of time then try getting new data again.
 			if not self.is_waiting():
@@ -648,7 +677,12 @@ class boardFixed():
 				del self.middel
 				self.bottom.delete()
 				del self.bottom
-				self.image_composition.remove_image(self.NoServices)
+				if self.no_services_showing:
+					try:
+						self.image_composition.remove_image(self.NoServices)
+					except Exception:
+						pass
+					self.no_services_showing = False
 				self.State = "dead"
 		else:
 			# Tell all rows of the display next frame is wantted.
@@ -662,8 +696,13 @@ class boardFixed():
 		if (self.x > Args.NumberOfCards or self.x >len(self.Services)-1):
 			self.x = 1 if Args.FixToArrive else 0
 			if LiveTime.TimePassed():  
-				self.Services = LiveTime.GetData()
-				print_safe("New Data Retrieved %s" % datetime.now().time())
+				newServices = LiveTime.GetData()
+				if newServices is not None:
+					self.Services = newServices
+					print_safe("New Data Retrieved %s" % datetime.now().time())
+				else:
+					print_safe("Failed to retrieve new data, retaining existing services.")
+					self.Services = [s for s in self.Services if s.TimeInMin() > -1]
 
 		# If there are more rows (3) than there is services scheduled show nothing.
 		if row > len(self.Services):       
@@ -694,9 +733,16 @@ class boardFixed():
 
 	# Used to add a time delay if there was an error with the last API request (providing a back off and wait mechanism)
 	def is_waiting(self):
-		self.ticks += 1
-		if self.ticks > Args.RecoveryTime:
-			self.ticks = 0
+		if self.recovery_start is None:
+			self.recovery_start = datetime.now()
+			if LiveTime.ConsecutiveErrors > 0:
+				base_wait = min(float(Args.RequestLimit) * (2 ** (LiveTime.ConsecutiveErrors - 1)), 300.0)
+			else:
+				base_wait = float(Args.RecoveryTime)
+			self.recovery_wait_seconds = base_wait * random.uniform(0.85, 1.15)
+		if (datetime.now() - self.recovery_start).total_seconds() >= self.recovery_wait_seconds:
+			self.recovery_start = None
+			self.recovery_wait_seconds = None
 			return False
 		return True	
 		
@@ -747,7 +793,7 @@ def Splash():
 	if Args.SplashScreen:
 		with canvas(device) as draw:
 			draw.multiline_text((64, 10), "Departure Board", font= ImageFont.truetype("%s/resources/Bold.ttf"  % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),20), align="center")
-			draw.multiline_text((45, 35), "Version : 2.6.OT -  By Jonathan Foot", font=ImageFont.truetype("%s/resources/Skinny.ttf"  % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
+			draw.multiline_text((45, 35), "Version : 2.7.OT -  By Jonathan Foot", font=ImageFont.truetype("%s/resources/Skinny.ttf"  % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
 		time.sleep(30) #Wait such a long time to allow the device to startup and connect to a WIFI source first.
 
 try:
