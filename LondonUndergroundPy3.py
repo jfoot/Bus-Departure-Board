@@ -10,6 +10,8 @@ import collections
 import inspect
 import json
 import os
+import random
+import socket
 import threading
 import time
 from datetime import datetime
@@ -71,6 +73,7 @@ parser.add_argument("--no-console-output",dest='NoConsole', action='store_true',
 parser.add_argument("--filename",dest='filename', default="output.gif", help="Used mainly for development, if using a gifanim display, this can be used to set the output gif file name, this should always end in .gif.")
 #parser.add_argument("--no-pip-update",dest='NoPipUpdate',  action='store_true', default=False, help="By default, the program will update any software dependencies/ pip libraries, this is to ensure your display still works correctly and has the required security updates. However, if you wish you can use this tag to disable pip updates and downloads. ")
 parser.add_argument("-a","--APIID", help="LEGACY - THIS IS NO LONGER USED OR NEEDED", type=str)
+parser.add_argument("--RequestTimeout", dest="RequestTimeout", type=check_positive, default=30, help="Defines the maximum time in seconds to wait for a network request before timing out; default is 30(seconds)")
 parser.add_argument("-c","--ShowTemperature", "--ShowTemp", "--ShowEnvironment", dest="ShowTemperature", action="store_true", default=False, help="Show live temperature in C and humidity percentage next to the time at the bottom of the display; off by default.")
 parser.add_argument("--SensorPin", dest="SensorPin", type=int, default=4, help="GPIO pin (BCM numbering) connected to DHT11 DATA line; default is 4 (board.D4).")
 parser.add_argument("--SensorInterval", dest="SensorInterval", type=float, default=2.5, help="Sampling interval in seconds for the DHT11 sensor (minimum 2.0s); default is 2.5.")
@@ -81,6 +84,7 @@ requiredNamed = parser.add_argument_group('required named arguments')
 requiredNamed.add_argument("-k","--APIKey", help="Your Transport for London API Key, you can get your own at: https://api-portal.tfl.gov.uk/signup", type=str,required=True)
 requiredNamed.add_argument("-s","--StationID", help="The London Underground Code for the specific station you wish to display.", type=str,required=True)
 Args = parser.parse_args()
+socket.setdefaulttimeout(Args.RequestTimeout)
 
 ## Defines all the programs "global" variables 
 # Defines the basic font used throughout most of the text boxes in the program
@@ -108,6 +112,8 @@ class LiveTimeStud():
 class LiveTime(object):
 	# The last time an API call was made to get new data.
 	LastUpdate = datetime.now()
+	ConsecutiveErrors = 0
+	NextRetryDelay = Args.RequestLimit
 	
 	# * Change this method to implement your own API *
 	def __init__(self, Data):
@@ -141,7 +147,7 @@ class LiveTime(object):
 	# Returns true or false dependent upon if the last time an API data call was made was over the request limit; to prevent spamming the API feed.
 	@staticmethod
 	def TimePassed():
-		return (datetime.now() - LiveTime.LastUpdate).total_seconds() > Args.RequestLimit
+		return (datetime.now() - LiveTime.LastUpdate).total_seconds() > LiveTime.NextRetryDelay
 
 	# Return true or false dependent upon if the last time the display was updated was over the static update limit. This prevents updating the display to frequently to increase performance.
 	def TimePassedStatic(self):
@@ -157,7 +163,7 @@ class LiveTime(object):
 		url = "https://api.tfl.gov.uk/StopPoint/%s/Arrivals?app_id=%s&app_key=%s" % (Args.StationID, Args.APIKey, Args.APIKey)
 		req = Request(url, headers={"User-Agent": "Mozilla/5.0"})
 		try:
-			with urlopen(req) as conn:
+			with urlopen(req, timeout=Args.RequestTimeout) as conn:
 				tempServices = json.loads(conn.read())
 				for service in tempServices:
 					# If not in excluded services list, convert custom API object to LiveTime object and add to list.
@@ -176,11 +182,16 @@ class LiveTime(object):
 						service.Destination = str(x) + "." + service.Destination
 					x = x + 1
 	
+			LiveTime.ConsecutiveErrors = 0
+			LiveTime.NextRetryDelay = Args.RequestLimit
 			return services
 		except Exception as e:
+			LiveTime.ConsecutiveErrors += 1
+			base_backoff = min(float(Args.RequestLimit) * (2 ** (LiveTime.ConsecutiveErrors - 1)), 300.0)
+			LiveTime.NextRetryDelay = base_backoff * random.uniform(0.85, 1.15)
 			print("GetData() ERROR")
 			print(str(e))
-			return []
+			return None
 
 
 
@@ -394,16 +405,14 @@ class ScrollTime():
 	
 	# Used when you want to delete the row/card/object.
 	def delete(self):
-		try:
-			self.image_composition.remove_image(self.IStaticOld)
-			self.image_composition.remove_image(self.rectangle)
-		except:
-			pass
-		try:
-			self.image_composition.remove_image(self.IDestination)
-			self.image_composition.remove_image(self.IDisplayTime)
-		except:
-			pass  
+		for attr in ('IStaticOld', 'rectangle', 'IDestination', 'IDisplayTime', 'TrainApproaching', 'Blank'):
+			if hasattr(self, attr):
+				img = getattr(self, attr)
+				if img is not None:
+					try:
+						self.image_composition.remove_image(img)
+					except Exception:
+						pass
 		self.image_composition.refresh() 
 
 	# Called upon each time you want to get the next frame for the display.
@@ -576,12 +585,16 @@ class ScrollTime():
 ###
 class boardFixed():
 	def __init__(self, image_composition, scroll_delay, device):
-		self.Services = LiveTime.GetData()   
+		data = LiveTime.GetData()
+		self.Services = data if data is not None else []
 		self.synchroniser = Synchroniser()
 		self.scroll_delay = scroll_delay
 		self.image_composition = image_composition
 		self.device = device
 		self.ticks = 0
+		self.recovery_start = None
+		self.recovery_wait_seconds = None
+		self.no_services_showing = False
 		self.setInitalCards()
 		self.State = "alive"
 	
@@ -605,8 +618,12 @@ class boardFixed():
 	def tick(self):
 		#If no data can be found.
 		if len(self.Services) == 0:
-			if self.ticks == 0:
+			if not self.no_services_showing:
+				self.top.delete()
+				self.middel.delete()
+				self.bottom.delete()
 				self.image_composition.add_image(self.NoServices)
+				self.no_services_showing = True
 
 			#Wait a period of time then try getting new data again.
 			if not self.is_waiting():
@@ -616,7 +633,12 @@ class boardFixed():
 				del self.middel
 				self.bottom.delete()
 				del self.bottom
-				self.image_composition.remove_image(self.NoServices)
+				if self.no_services_showing:
+					try:
+						self.image_composition.remove_image(self.NoServices)
+					except Exception:
+						pass
+					self.no_services_showing = False
 				self.State = "dead"
 		else:
 			# Tell all rows of the display next frame is wantted.
@@ -630,8 +652,13 @@ class boardFixed():
 		if (self.x > Args.NumberOfCards or self.x >len(self.Services)-1):
 			self.x = 1 if Args.FixToArrive else 0
 			if LiveTime.TimePassed():  
-				self.Services = LiveTime.GetData()
-				print_safe("New Data Retrieved %s" % datetime.now().time())
+				newServices = LiveTime.GetData()
+				if newServices is not None:
+					self.Services = newServices
+					print_safe("New Data Retrieved %s" % datetime.now().time())
+				else:
+					print_safe("Failed to retrieve new data, retaining existing services.")
+					self.Services = [s for s in self.Services if s.TimeInMin() > -1]
 		
 		# If there are more rows (3) than there is services scheduled show nothing.
 		if row > len(self.Services):       
@@ -657,7 +684,7 @@ class boardFixed():
 					card.changeCard(self.Services[self.x % len(self.Services)],device)
 		
 		if Args.warning:
-			if self.Services[0].TimeInMin() <= Args.WarningTime:
+			if len(self.Services) > 0 and self.Services[0].TimeInMin() <= Args.WarningTime:
 				self.bottom.SetTrainApproaching()
 			else:
 				self.bottom.SetNotTrainApproaching()
@@ -667,9 +694,16 @@ class boardFixed():
 
 	# Used to add a time delay if there was an error with the last API request (providing a back off and wait mechanism)
 	def is_waiting(self):
-		self.ticks += 1
-		if self.ticks > Args.RecoveryTime:
-			self.ticks = 0
+		if self.recovery_start is None:
+			self.recovery_start = datetime.now()
+			if LiveTime.ConsecutiveErrors > 0:
+				base_wait = min(float(Args.RequestLimit) * (2 ** (LiveTime.ConsecutiveErrors - 1)), 300.0)
+			else:
+				base_wait = float(Args.RecoveryTime)
+			self.recovery_wait_seconds = base_wait * random.uniform(0.85, 1.15)
+		if (datetime.now() - self.recovery_start).total_seconds() >= self.recovery_wait_seconds:
+			self.recovery_start = None
+			self.recovery_wait_seconds = None
 			return False
 		return True
 	
@@ -811,7 +845,7 @@ def Splash():
 	if Args.SplashScreen:
 		with canvas(device) as draw:
 			draw.multiline_text((64, 10), "Departure Board", font= ImageFont.truetype("%s/resources/Bold.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),20), align="center")
-			draw.multiline_text((45, 35), "Version : 2.11.LU -  By Jonathan Foot", font=ImageFont.truetype("%s/resources/Skinny.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
+			draw.multiline_text((45, 35), "Version : 2.12.LU -  By Jonathan Foot", font=ImageFont.truetype("%s/resources/Skinny.ttf" % (os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))),15), align="center")
 		time.sleep(30) #Wait such a long time to allow the device to startup and connect to a WIFI source first.
 
 
